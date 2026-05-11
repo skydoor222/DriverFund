@@ -6,7 +6,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-import { Driver, ReturnItem } from "../../lib/types";
+import { Driver, ReturnItem, RaceResult } from "../../lib/types";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -142,6 +142,9 @@ export default function DriverProfilePage() {
   let sponsors: { name: string; logo_url?: string }[] = [];
   try { if (driver.sponsors) sponsors = JSON.parse(driver.sponsors); } catch {}
 
+  let raceResults: RaceResult[] = [];
+  try { if (driver.race_results) raceResults = JSON.parse(driver.race_results); } catch {}
+
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView style={styles.container} stickyHeaderIndices={[2]}>
@@ -216,20 +219,39 @@ export default function DriverProfilePage() {
             {driver.hometown ? (
               <View style={styles.metaPill}><Text style={styles.metaPillText}>📍 {driver.hometown}</Text></View>
             ) : null}
+            {(driver as any).blood_type ? (
+              <View style={styles.metaPill}><Text style={styles.metaPillText}>🩸 {(driver as any).blood_type}型</Text></View>
+            ) : null}
           </View>
+
+          {/* 座右の銘 */}
+          {(driver as any).motto ? (
+            <View style={styles.mottoBox}>
+              <Text style={styles.mottoLabel}>座右の銘</Text>
+              <Text style={styles.mottoText}>「{(driver as any).motto}」</Text>
+            </View>
+          ) : null}
 
           {/* Stats bar */}
           <View style={styles.statsBar}>
             <View style={[styles.statItem, styles.statDivider]}>
-              <Text style={styles.statValue}>{driver.total_supporters ?? 0}<Text style={styles.statUnit}>名</Text></Text>
-              <Text style={styles.statLabel}>応援者</Text>
+              <Text style={styles.statValue}>
+                {driver.series_rank ? (
+                  <Text>P{driver.series_rank}</Text>
+                ) : "—"}
+              </Text>
+              <Text style={styles.statLabel}>今季順位</Text>
             </View>
             <View style={[styles.statItem, styles.statDivider]}>
               <Text style={styles.statValue}>
-                {((driver.monthly_revenue ?? 0) / 10000).toFixed(0)}
-                <Text style={styles.statUnit}>万</Text>
+                {driver.total_points != null ? String(driver.total_points) : "—"}
+                {driver.total_points != null ? <Text style={styles.statUnit}>pt</Text> : null}
               </Text>
-              <Text style={styles.statLabel}>月間支援額</Text>
+              <Text style={styles.statLabel}>獲得ポイント</Text>
+            </View>
+            <View style={[styles.statItem, styles.statDivider]}>
+              <Text style={styles.statValue}>{driver.total_supporters ?? 0}<Text style={styles.statUnit}>名</Text></Text>
+              <Text style={styles.statLabel}>応援者</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
@@ -279,6 +301,54 @@ export default function DriverProfilePage() {
         {/* ─── PROFILE TAB ─── */}
         {tab === "プロフィール" && (
           <View style={{ paddingBottom: 40 }}>
+
+            {/* 今季レース結果 */}
+            {raceResults.length > 0 && (
+              <View style={styles.section}>
+                <SectionTitle>今季レース結果</SectionTitle>
+                {/* Header row */}
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableHeaderCell, { width: 36 }]}>Rd.</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>サーキット</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 40, textAlign: "center" }]}>予選</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 40, textAlign: "center" }]}>決勝</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 52, textAlign: "right" }]}>ポイント</Text>
+                </View>
+                {raceResults.map((r, i) => {
+                  const isWin = r.race === 1;
+                  const isPodium = r.race != null && r.race <= 3;
+                  return (
+                    <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+                      <Text style={[styles.tableCell, { width: 36, color: T.gray3 }]}>{r.round}</Text>
+                      <Text style={[styles.tableCell, { flex: 1 }]} numberOfLines={1}>{r.circuit}</Text>
+                      <Text style={[styles.tableCell, { width: 40, textAlign: "center", color: T.gray3 }]}>
+                        {r.qualifying != null ? `P${r.qualifying}` : "—"}
+                      </Text>
+                      <View style={{ width: 40, alignItems: "center", justifyContent: "center" }}>
+                        {r.race != null ? (
+                          <View style={[
+                            styles.racePosBadge,
+                            isWin && { backgroundColor: T.yellow },
+                            isPodium && !isWin && { backgroundColor: "#E8F0FF" },
+                          ]}>
+                            <Text style={[
+                              styles.racePosText,
+                              isWin && { color: T.dark },
+                              isPodium && !isWin && { color: "#0058CC" },
+                            ]}>P{r.race}</Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.tableCell, { color: T.gray4 }]}>—</Text>
+                        )}
+                      </View>
+                      <Text style={[styles.tableCell, { width: 52, textAlign: "right", color: r.points !== "0" ? T.dark : T.gray4, fontWeight: r.points !== "0" ? "700" : "400" }]}>
+                        {r.points}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             {/* フォトギャラリー */}
             {driver.photo_urls && driver.photo_urls.length > 0 && (
@@ -574,6 +644,14 @@ const styles = StyleSheet.create({
   },
   metaPillText: { fontSize: 12, color: T.gray2 },
 
+  // Motto
+  mottoBox: {
+    backgroundColor: "#FFF8F0", borderLeftWidth: 3, borderLeftColor: T.yellow,
+    borderRadius: 6, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 14,
+  },
+  mottoLabel: { fontSize: 10, fontWeight: "700", color: T.gray3, marginBottom: 3, letterSpacing: 0.5 },
+  mottoText: { fontSize: 14, fontWeight: "700", color: T.dark, fontStyle: "italic" },
+
   // Stats
   statsBar: {
     flexDirection: "row", borderWidth: 1, borderColor: T.gray5,
@@ -619,6 +697,27 @@ const styles = StyleSheet.create({
 
   // Gallery
   galleryPhoto: { width: 220, height: 150, borderRadius: 12, resizeMode: "cover" },
+
+  // Race results table
+  tableHeader: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 6, paddingHorizontal: 8,
+    borderBottomWidth: 2, borderBottomColor: T.dark,
+    marginBottom: 2,
+  },
+  tableHeaderCell: { fontSize: 10, fontWeight: "800", color: T.dark, letterSpacing: 0.5, textTransform: "uppercase" },
+  tableRow: {
+    flexDirection: "row", alignItems: "center",
+    paddingVertical: 8, paddingHorizontal: 8,
+    borderBottomWidth: 1, borderBottomColor: T.gray5,
+  },
+  tableRowAlt: { backgroundColor: "#FAFAFA" },
+  tableCell: { fontSize: 13, color: T.dark },
+  racePosBadge: {
+    borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6,
+    backgroundColor: T.bg,
+  },
+  racePosText: { fontSize: 11, fontWeight: "700", color: T.dark },
 
   // Timeline
   timeline: {},

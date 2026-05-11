@@ -50,6 +50,22 @@ export interface Driver {
   photo_urls?: string[];       // ギャラリー写真（複数）
   career_timeline?: string;    // 経歴タイムライン（JSON文字列: [{year,event}]）
   sponsors?: string;           // 現スポンサー（JSON文字列: [{name,logo_url}]）
+  blood_type?: string;         // 血液型
+  motto?: string;              // 座右の銘
+  // レース結果
+  race_results?: string;       // JSON: [{round,circuit,qualifying,race,points}]
+  series_rank?: number;        // 今季シリーズ順位
+  team_rank?: number;          // 今季チーム順位
+  total_points?: number;       // 今季獲得ポイント合計
+}
+
+// レース結果1行の型
+export interface RaceResult {
+  round: number;
+  circuit: string;
+  qualifying: number | null;   // DNQ/DNS は null
+  race: number | null;          // DNF/DNS は null
+  points: string;               // "15" "2+15" など
 }
 
 export interface ReturnItem {
