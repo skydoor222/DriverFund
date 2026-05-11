@@ -3,9 +3,9 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Modal, Alert, ActivityIndicator, Linking, Dimensions,
 } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 const { width: SCREEN_W } = Dimensions.get("window");
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { Driver, ReturnItem } from "../../lib/types";
@@ -626,6 +626,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#333", marginTop: 12, marginBottom: 0,
   },
   modalContent: { padding: 24, alignItems: "center" },
+  modalImage: { width: "100%", height: 200, borderRadius: 12, marginBottom: 16, resizeMode: "cover" },
   modalEmoji: { fontSize: 44, marginBottom: 10 },
   modalTitle: { fontSize: 22, fontWeight: "900", color: T.white, marginBottom: 8 },
   modalDesc: { fontSize: 13, color: T.gray3, lineHeight: 20, textAlign: "center", marginBottom: 20 },

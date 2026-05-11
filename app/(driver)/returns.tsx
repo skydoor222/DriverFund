@@ -66,6 +66,7 @@ export default function ReturnsScreen() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [category, setCategory] = useState<ReturnItemCategory>("report");
   const [price, setPrice] = useState("");
   const [quantityLimit, setQuantityLimit] = useState("");
@@ -86,7 +87,7 @@ export default function ReturnsScreen() {
 
   function openCreate() {
     setEditingId(null);
-    setTitle(""); setDescription(""); setCategory("report");
+    setTitle(""); setDescription(""); setImageUrl(""); setCategory("report");
     setPrice(""); setQuantityLimit(""); setBillingType("monthly");
     setModalVisible(true);
   }
@@ -94,6 +95,7 @@ export default function ReturnsScreen() {
   function openEdit(item: ReturnItem) {
     setEditingId(item.id);
     setTitle(item.title); setDescription(item.description ?? "");
+    setImageUrl(item.image_url ?? "");
     setCategory(item.category); setPrice(item.price.toString());
     setQuantityLimit(item.quantity_limit?.toString() ?? "");
     setBillingType(item.billing_type);
@@ -108,7 +110,9 @@ export default function ReturnsScreen() {
     setSaving(true);
     const ql = quantityLimit ? parseInt(quantityLimit) : null;
     const payload = {
-      driver_id: driverId, title, description, category,
+      driver_id: driverId, title, description,
+      image_url: imageUrl || null,
+      category,
       price: parseInt(price), quantity_limit: ql,
       remaining: editingId ? undefined : ql,
       billing_type: billingType, is_active: true,
@@ -239,6 +243,19 @@ export default function ReturnsScreen() {
             placeholder="内容の詳細..." multiline placeholderTextColor={T.gray3}
           />
 
+          <Text style={styles.label}>リターン画像URL（任意）</Text>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
+          ) : null}
+          <TextInput
+            style={styles.input} value={imageUrl} onChangeText={setImageUrl}
+            placeholder="https://... (画像のURL)" placeholderTextColor={T.gray3}
+            autoCapitalize="none" keyboardType="url"
+          />
+          <Text style={styles.imageHint}>
+            ※ Supabase StorageやImgurなどにアップした画像のURLを貼り付けてください
+          </Text>
+
           <Text style={styles.label}>月額 / 単発</Text>
           <View style={styles.billingRow}>
             {(["monthly", "one_time"] as BillingType[]).map((b) => (
@@ -360,4 +377,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6, paddingHorizontal: 12,
   },
   suggestionText: { color: T.gray2, fontSize: 13 },
+  imagePreview: { width: "100%", height: 160, borderRadius: 10, resizeMode: "cover", marginBottom: 8 },
+  imageHint: { fontSize: 11, color: T.gray3, marginTop: 4, lineHeight: 16 },
 });
