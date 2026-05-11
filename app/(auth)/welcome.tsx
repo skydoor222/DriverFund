@@ -1,85 +1,121 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image } from "react-native";
 import { useRouter } from "expo-router";
+
+const { width: W, height: H } = Dimensions.get("window");
 
 const T = {
   red: "#E8002D",
   yellow: "#FFB800",
   dark: "#0A0A0A",
-  gray2: "#555",
   gray3: "#888",
+  gray4: "#555",
   white: "#FFFFFF",
 };
-
-// Speed lines rendered as thin rotated View elements
-function SpeedLines() {
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(12)].map((_, i) => (
-        <View
-          key={i}
-          style={{
-            position: "absolute",
-            width: i % 3 === 0 ? 2 : 1,
-            top: 0,
-            bottom: 0,
-            left: -50 + i * 45,
-            backgroundColor: "white",
-            opacity: 0.04,
-            transform: [{ skewX: "-20deg" }],
-          }}
-        />
-      ))}
-    </View>
-  );
-}
 
 export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <SpeedLines />
 
-      {/* Red accent stripe */}
-      <View style={styles.redStripe} />
-      <View style={styles.yellowStripe} />
-
-      {/* Logo */}
-      <View style={styles.logoRow}>
-        <View style={styles.logoIcon}>
-          <Text style={styles.logoEmoji}>🏎</Text>
-        </View>
-        <Text style={styles.logoText}>DriverFund</Text>
+      {/* ── 背景装飾：速度線 ── */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {[...Array(14)].map((_, i) => (
+          <View
+            key={i}
+            style={{
+              position: "absolute",
+              width: i % 4 === 0 ? 3 : 1,
+              top: 0,
+              bottom: 0,
+              left: -60 + i * 55,
+              backgroundColor: "#fff",
+              opacity: i % 4 === 0 ? 0.03 : 0.015,
+              transform: [{ skewX: "-18deg" }],
+            }}
+          />
+        ))}
+        {/* ドット：上部右 */}
+        <View style={styles.dotAccent1} />
+        <View style={styles.dotAccent2} />
+        {/* 赤ライン */}
+        <View style={styles.redBar} />
+        <View style={styles.yellowBar} />
       </View>
 
-      {/* Center content */}
-      <View style={styles.hero}>
-        <Text style={styles.tagline}>走る時間を、{"\n"}営業ではなく{"\n"}練習に。</Text>
-        <View style={styles.redLine} />
-        <Text style={styles.sub}>
-          ドライバーが自分でお返しを設定し、{"\n"}
-          応援者から直接支援を受けるサービス。
+      {/* ── チェッカーフラッグ風 上部帯 ── */}
+      <View style={styles.checkerRow}>
+        {[...Array(12)].map((_, i) => (
+          <View
+            key={i}
+            style={[styles.checkerCell, { backgroundColor: i % 2 === 0 ? "#fff" : "#000", opacity: 0.08 }]}
+          />
+        ))}
+      </View>
+
+      {/* ── ロゴ ── */}
+      <View style={styles.logoArea}>
+        {/* アイコン */}
+        <View style={styles.logoIcon}>
+          <Text style={styles.logoEmoji}>🏎</Text>
+          <View style={styles.logoIconAccent} />
+        </View>
+
+        {/* テキストロゴ */}
+        <Text style={styles.logoText}>Driver</Text>
+        <Text style={styles.logoTextRed}>Fund</Text>
+
+        {/* タグライン */}
+        <View style={styles.taglineWrap}>
+          <View style={styles.taglineLine} />
+          <Text style={styles.tagline}>走る夢を、直接支援する</Text>
+          <View style={styles.taglineLine} />
+        </View>
+      </View>
+
+      {/* ── キャッチコピー ── */}
+      <View style={styles.copyArea}>
+        <Text style={styles.copy}>
+          ドライバーに、{"\n"}直接届ける応援を。
+        </Text>
+        <Text style={styles.copyBody}>
+          サイン入りグッズ・ピット見学・マシンロゴ掲載。{"\n"}
+          あなたの支援がドライバーの夢を叶える。
         </Text>
       </View>
 
+      {/* ── ボタン ── */}
       <View style={styles.buttons}>
         <TouchableOpacity
           style={styles.primaryBtn}
           onPress={() => router.push("/(auth)/signup")}
+          activeOpacity={0.85}
         >
-          <Text style={styles.primaryBtnText}>はじめる</Text>
+          <Text style={styles.primaryBtnText}>ドライバーを応援する</Text>
+          <Text style={styles.primaryBtnArrow}>→</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.outlineBtn}
+          style={styles.ghostBtn}
           onPress={() => router.push("/(auth)/login")}
+          activeOpacity={0.7}
         >
-          <Text style={styles.outlineBtnText}>ログイン</Text>
+          <Text style={styles.ghostBtnText}>すでにアカウントをお持ちの方</Text>
         </TouchableOpacity>
 
         <Text style={styles.legal}>
           続けることで利用規約・プライバシーポリシーに同意します
         </Text>
+      </View>
+
+      {/* ── 下部チェッカー ── */}
+      <View style={[styles.checkerRow, styles.checkerBottom]}>
+        {[...Array(12)].map((_, i) => (
+          <View
+            key={i}
+            style={[styles.checkerCell, { backgroundColor: i % 2 === 1 ? "#fff" : "#000", opacity: 0.08 }]}
+          />
+        ))}
       </View>
     </View>
   );
@@ -89,103 +125,152 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: T.dark,
-    paddingHorizontal: 24,
-    paddingTop: 56,
-    paddingBottom: 48,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 0,
+    paddingBottom: 0,
     overflow: "hidden",
   },
-  redStripe: {
-    position: "absolute",
-    top: 0,
-    right: 60,
-    width: 4,
-    height: "45%",
-    backgroundColor: T.red,
-    opacity: 0.8,
+
+  // 背景装飾
+  dotAccent1: {
+    position: "absolute", top: H * 0.18, right: 40,
+    width: 120, height: 120, borderRadius: 60,
+    backgroundColor: T.red, opacity: 0.06,
   },
-  yellowStripe: {
-    position: "absolute",
-    top: 0,
-    right: 72,
-    width: 2,
-    height: "30%",
-    backgroundColor: T.yellow,
-    opacity: 0.5,
+  dotAccent2: {
+    position: "absolute", bottom: H * 0.22, left: 20,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: T.yellow, opacity: 0.06,
   },
-  logoRow: {
-    flexDirection: "row",
+  redBar: {
+    position: "absolute", top: 0, right: 80,
+    width: 3, height: H * 0.35, backgroundColor: T.red, opacity: 0.5,
+  },
+  yellowBar: {
+    position: "absolute", top: 0, right: 92,
+    width: 2, height: H * 0.22, backgroundColor: T.yellow, opacity: 0.3,
+  },
+
+  // チェッカー帯
+  checkerRow: {
+    width: "100%", height: 20, flexDirection: "row",
+  },
+  checkerBottom: { position: "absolute", bottom: 0 },
+  checkerCell: { flex: 1, height: 20 },
+
+  // ロゴエリア
+  logoArea: {
+    flex: 1,
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
+    paddingTop: 48,
   },
   logoIcon: {
-    width: 36,
-    height: 36,
-    backgroundColor: T.red,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 80, height: 80,
+    backgroundColor: T.red, borderRadius: 20,
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 16,
+    shadowColor: T.red, shadowOpacity: 0.6, shadowRadius: 20, elevation: 10,
   },
-  logoEmoji: { fontSize: 20 },
+  logoEmoji: { fontSize: 44 },
+  logoIconAccent: {
+    position: "absolute", bottom: 0, right: 0,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: T.yellow,
+    transform: [{ translateX: 6 }, { translateY: 6 }],
+  },
   logoText: {
+    fontSize: 52,
+    fontWeight: "900",
     color: T.white,
-    fontSize: 26,
-    fontWeight: "900",
     letterSpacing: 2,
+    lineHeight: 56,
+    marginBottom: -8,
   },
-  hero: {
-    flex: 1,
-    justifyContent: "center",
-    gap: 20,
-  },
-  tagline: {
-    color: T.red,
-    fontSize: 28,
+  logoTextRed: {
+    fontSize: 52,
     fontWeight: "900",
-    lineHeight: 40,
-    letterSpacing: 0.5,
+    color: T.red,
+    letterSpacing: 2,
+    lineHeight: 60,
   },
-  redLine: {
-    width: 48,
-    height: 3,
-    backgroundColor: T.red,
-    borderRadius: 2,
+  taglineWrap: {
+    flexDirection: "row", alignItems: "center", gap: 10, marginTop: 18,
   },
-  sub: {
-    color: T.gray3,
-    fontSize: 13,
-    lineHeight: 24,
+  taglineLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.15)", maxWidth: 40 },
+  tagline: { fontSize: 12, color: "rgba(255,255,255,0.45)", letterSpacing: 1.5, fontWeight: "500" },
+
+  // コピー
+  copyArea: {
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingBottom: 20,
+    gap: 10,
   },
+  copy: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: T.white,
+    textAlign: "center",
+    lineHeight: 36,
+    letterSpacing: 0.3,
+  },
+  copyBody: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.45)",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  // ボタン
   buttons: {
+    width: "100%",
+    paddingHorizontal: 24,
+    paddingBottom: 44,
     gap: 12,
   },
   primaryBtn: {
     backgroundColor: T.red,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 17,
+    paddingHorizontal: 24,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    shadowColor: T.red,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 6,
   },
   primaryBtnText: {
     color: T.white,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
-  outlineBtn: {
-    borderWidth: 2,
-    borderColor: T.white,
-    borderRadius: 10,
-    paddingVertical: 14,
+  primaryBtnArrow: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  ghostBtn: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    borderRadius: 14,
+    paddingVertical: 15,
     alignItems: "center",
   },
-  outlineBtnText: {
-    color: T.white,
-    fontSize: 15,
-    fontWeight: "700",
+  ghostBtnText: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 13,
+    fontWeight: "600",
   },
   legal: {
     textAlign: "center",
-    color: T.gray2,
-    fontSize: 11,
-    marginTop: 4,
+    color: "rgba(255,255,255,0.2)",
+    fontSize: 10,
+    marginTop: 2,
   },
 });

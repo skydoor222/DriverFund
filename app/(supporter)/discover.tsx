@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, TextInput, ActivityIndicator, ScrollView,
+  Image, TextInput, ActivityIndicator, ScrollView, Modal, Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
@@ -41,13 +41,14 @@ const categoryLabel: Record<RacingCategory, string> = {
 type DriverWithProfile = Driver & { profiles: { full_name: string; avatar_url?: string } };
 
 export default function DiscoverScreen() {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const [drivers, setDrivers] = useState<DriverWithProfile[]>([]);
   const [filtered, setFiltered] = useState<DriverWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<RacingCategory | "all">("all");
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => { loadDrivers(); }, []);
 
@@ -87,12 +88,66 @@ export default function DiscoverScreen() {
           </View>
           <Text style={styles.logoText}>DriverFund</Text>
         </View>
-        <TouchableOpacity onPress={signOut}>
+        <TouchableOpacity onPress={() => setMenuVisible(true)}>
           <View style={styles.avatarIcon}>
-            <Text>👤</Text>
+            <Text style={styles.avatarIconText}>
+              {user?.email?.charAt(0).toUpperCase() ?? "?"}
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
+
+      {/* プロフィールメニュー */}
+      <Modal visible={menuVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        >
+          <View style={styles.menuSheet}>
+            {/* ユーザー情報 */}
+            <View style={styles.menuHeader}>
+              <View style={styles.menuAvatar}>
+                <Text style={styles.menuAvatarText}>
+                  {user?.email?.charAt(0).toUpperCase() ?? "?"}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuEmail} numberOfLines={1}>{user?.email}</Text>
+                <Text style={styles.menuRole}>サポーター</Text>
+              </View>
+            </View>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                Alert.alert(
+                  "ログアウト",
+                  "ログアウトしますか？",
+                  [
+                    { text: "キャンセル", style: "cancel" },
+                    { text: "ログアウト", style: "destructive", onPress: () => signOut() },
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.menuItemIcon}>🚪</Text>
+              <Text style={styles.menuItemTextDanger}>ログアウト</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, { marginTop: 4 }]}
+              onPress={() => setMenuVisible(false)}
+            >
+              <Text style={styles.menuItemIcon}>✕</Text>
+              <Text style={styles.menuItemText}>閉じる</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Search */}
       <View style={styles.searchBox}>
@@ -204,9 +259,43 @@ const styles = StyleSheet.create({
   },
   logoText: { fontSize: 20, fontWeight: "900", color: T.dark, letterSpacing: 1 },
   avatarIcon: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: T.gray5,
+    width: 34, height: 34, borderRadius: 17, backgroundColor: T.red,
     alignItems: "center", justifyContent: "center",
   },
+  avatarIconText: {
+    color: "#fff", fontSize: 14, fontWeight: "800",
+  },
+
+  // メニュー
+  menuOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-start", alignItems: "flex-end",
+    paddingTop: 100, paddingRight: 16,
+  },
+  menuSheet: {
+    backgroundColor: "#fff", borderRadius: 16, width: 260,
+    paddingVertical: 8,
+    shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
+  },
+  menuHeader: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  menuAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: T.red,
+    alignItems: "center", justifyContent: "center",
+  },
+  menuAvatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  menuEmail: { fontSize: 13, fontWeight: "600", color: T.dark },
+  menuRole: { fontSize: 11, color: T.gray3, marginTop: 2 },
+  menuDivider: { height: 1, backgroundColor: T.gray5, marginVertical: 4 },
+  menuItem: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingHorizontal: 16, paddingVertical: 13,
+  },
+  menuItemIcon: { fontSize: 16, width: 22, textAlign: "center" },
+  menuItemText: { fontSize: 14, color: T.dark, fontWeight: "500" },
+  menuItemTextDanger: { fontSize: 14, color: "#E8002D", fontWeight: "600" },
   searchBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: T.bg, borderRadius: 10, borderWidth: 1, borderColor: T.gray5,
