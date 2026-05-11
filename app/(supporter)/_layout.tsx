@@ -22,11 +22,11 @@ export default function SupporterLayout() {
         }}
       />
       <Tabs.Screen
-        name="my-supports"
+        name="my-drivers"
         options={{
-          title: "応援中",
+          title: "マイ選手",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="heart-outline" size={size} color={color} />
+            <Ionicons name="people-outline" size={size} color={color} />
           ),
         }}
       />
