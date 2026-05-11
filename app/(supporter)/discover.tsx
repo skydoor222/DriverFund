@@ -11,19 +11,21 @@ import { Driver, RacingCategory } from "../../lib/types";
 const T = {
   red: "#E8002D",
   dark: "#0A0A0A",
-  dark3: "#1E1E1E",
-  gray2: "#555",
-  gray3: "#888",
-  gray5: "#E8E8E8",
-  bg: "#F5F5F5",
+  dark2: "#111111",
+  dark3: "#1A1A1A",
+  dark4: "#222222",
+  gray1: "#333333",
+  gray2: "#555555",
+  gray3: "#888888",
+  gray4: "#AAAAAA",
+  gray5: "#2A2A2A",   // ダークテーマのborder
+  bg: "#0A0A0A",
+  card: "#161616",
   white: "#FFFFFF",
 };
 
 const CAT_COLORS: Record<string, string> = {
-  sf: T.red, f4: "#0058CC", kart: "#00933B", other: T.gray2,
-};
-const CAT_BG: Record<string, string> = {
-  sf: "#FFF0F3", f4: "#EEF3FF", kart: "#EEFFEE", other: "#F5F5F5",
+  sf: T.red, f4: "#4D8BFF", kart: "#2ECC71", other: T.gray3,
 };
 
 const CATEGORIES: { value: RacingCategory | "all"; label: string }[] = [
@@ -38,7 +40,7 @@ const categoryLabel: Record<RacingCategory, string> = {
   kart: "カート", f4: "F4", sf: "SF", other: "その他",
 };
 
-type DriverWithProfile = Driver & { profiles: { full_name: string; avatar_url?: string } };
+type DriverWithProfile = Driver & { profiles?: { full_name: string; avatar_url?: string } | null };
 
 export default function DiscoverScreen() {
   const { user, signOut } = useAuth();
@@ -57,12 +59,12 @@ export default function DiscoverScreen() {
     if (category !== "all") result = result.filter((d) => d.category === category);
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (d) =>
-          d.profiles?.full_name?.toLowerCase().includes(q) ||
+      result = result.filter((d) => {
+        const name = d.profiles?.full_name ?? (d as any).full_name ?? "";
+        return name.toLowerCase().includes(q) ||
           d.bio?.toLowerCase().includes(q) ||
-          d.team_name?.toLowerCase().includes(q)
-      );
+          d.team_name?.toLowerCase().includes(q);
+      });
     }
     setFiltered(result);
   }, [drivers, search, category]);
@@ -80,76 +82,17 @@ export default function DiscoverScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.logoRow}>
           <View style={styles.logoIcon}>
-            <Text style={{ fontSize: 16 }}>🏎</Text>
+            <Text style={{ fontSize: 15 }}>🏎</Text>
           </View>
           <Text style={styles.logoText}>DriverFund</Text>
         </View>
-        <TouchableOpacity onPress={() => setMenuVisible(true)}>
-          <View style={styles.avatarIcon}>
-            <Text style={styles.avatarIconText}>
-              {user?.email?.charAt(0).toUpperCase() ?? "?"}
-            </Text>
-          </View>
-        </TouchableOpacity>
       </View>
 
-      {/* プロフィールメニュー */}
-      <Modal visible={menuVisible} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setMenuVisible(false)}
-        >
-          <View style={styles.menuSheet}>
-            {/* ユーザー情報 */}
-            <View style={styles.menuHeader}>
-              <View style={styles.menuAvatar}>
-                <Text style={styles.menuAvatarText}>
-                  {user?.email?.charAt(0).toUpperCase() ?? "?"}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.menuEmail} numberOfLines={1}>{user?.email}</Text>
-                <Text style={styles.menuRole}>サポーター</Text>
-              </View>
-            </View>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                Alert.alert(
-                  "ログアウト",
-                  "ログアウトしますか？",
-                  [
-                    { text: "キャンセル", style: "cancel" },
-                    { text: "ログアウト", style: "destructive", onPress: () => signOut() },
-                  ]
-                );
-              }}
-            >
-              <Text style={styles.menuItemIcon}>🚪</Text>
-              <Text style={styles.menuItemTextDanger}>ログアウト</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuItem, { marginTop: 4 }]}
-              onPress={() => setMenuVisible(false)}
-            >
-              <Text style={styles.menuItemIcon}>✕</Text>
-              <Text style={styles.menuItemText}>閉じる</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Search */}
+      {/* ── Search ── */}
       <View style={styles.searchBox}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
@@ -161,12 +104,10 @@ export default function DiscoverScreen() {
         />
       </View>
 
-      {/* Category chips */}
+      {/* ── Category chips ── */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.catScroll}
-        contentContainerStyle={styles.catScrollContent}
+        horizontal showsHorizontalScrollIndicator={false}
+        style={styles.catScroll} contentContainerStyle={styles.catScrollContent}
       >
         {CATEGORIES.map((c) => (
           <TouchableOpacity
@@ -193,47 +134,63 @@ export default function DiscoverScreen() {
           }
           renderItem={({ item }) => {
             const cat = item.category as RacingCategory;
+            const displayName = item.profiles?.full_name ?? (item as any).full_name ?? "—";
+            const displayAvatar = item.profiles?.avatar_url ?? (item as any).avatar_url;
+            const catColor = CAT_COLORS[cat] ?? T.gray3;
             return (
               <TouchableOpacity
                 style={styles.card}
                 onPress={() => router.push(`/driver/${item.id}`)}
+                activeOpacity={0.8}
               >
-                {/* Avatar */}
-                <View style={styles.cardAvatarWrap}>
-                  {item.profiles?.avatar_url ? (
-                    <Image source={{ uri: item.profiles.avatar_url }} style={styles.avatar} />
-                  ) : (
-                    <View style={styles.avatarFallback}>
-                      <Text style={styles.avatarInitial}>
-                        {(item.profiles?.full_name ?? "?")[0]}
-                      </Text>
-                    </View>
-                  )}
+                {/* カバー画像エリア */}
+                {(item as any).cover_url ? (
+                  <Image source={{ uri: (item as any).cover_url }} style={styles.cardCover} />
+                ) : (
+                  <View style={[styles.cardCover, styles.cardCoverFallback]}>
+                    <View style={[styles.cardCoverAccent, { backgroundColor: catColor }]} />
+                  </View>
+                )}
+
+                {/* カテゴリバッジ（カバー上） */}
+                <View style={[styles.catBadge, { borderColor: catColor }]}>
+                  <Text style={[styles.catBadgeText, { color: catColor }]}>{categoryLabel[cat]}</Text>
                 </View>
 
+                {/* カード下部 */}
                 <View style={styles.cardBody}>
-                  {/* Name + badge + car number */}
-                  <View style={styles.cardTopRow}>
-                    <Text style={styles.driverName}>{item.profiles?.full_name}</Text>
-                    <View style={[styles.catBadge, { backgroundColor: CAT_BG[cat] || "#F5F5F5", borderColor: (CAT_COLORS[cat] || T.gray2) + "33" }]}>
-                      <Text style={[styles.catBadgeText, { color: CAT_COLORS[cat] || T.gray2 }]}>
-                        {categoryLabel[cat]}
-                      </Text>
+                  {/* アバター */}
+                  <View style={styles.cardAvatarWrap}>
+                    {displayAvatar ? (
+                      <Image source={{ uri: displayAvatar }} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarFallback]}>
+                        <Text style={styles.avatarInitial}>{displayName[0] ?? "?"}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.cardInfo}>
+                    <View style={styles.cardTopRow}>
+                      <Text style={styles.driverName}>{displayName}</Text>
+                      {item.car_number ? (
+                        <Text style={styles.carNumber}>#{item.car_number}</Text>
+                      ) : null}
                     </View>
-                    {item.car_number ? (
-                      <Text style={styles.carNumber}>#{item.car_number}</Text>
+                    {item.team_name ? (
+                      <Text style={styles.teamName} numberOfLines={1}>{item.team_name}</Text>
+                    ) : null}
+                    {item.catchphrase ? (
+                      <Text style={styles.catchphrase} numberOfLines={1}>
+                        「{item.catchphrase}」
+                      </Text>
                     ) : null}
                   </View>
 
-                  {/* Catchphrase in red italic */}
-                  {item.catchphrase ? (
-                    <Text style={styles.catchphrase} numberOfLines={1}>{item.catchphrase}</Text>
-                  ) : null}
-
-                  <Text style={styles.bio} numberOfLines={2}>{item.bio}</Text>
-
-                  <View style={styles.statsRow}>
-                    <Text style={styles.stat}>👥 {item.total_supporters}名が応援中</Text>
+                  {/* 応援者数 */}
+                  <View style={styles.supporterBadge}>
+                    <Text style={styles.supporterCount}>{item.total_supporters}</Text>
+                    <Text style={styles.supporterLabel}>人が応援</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -241,105 +198,122 @@ export default function DiscoverScreen() {
           }}
         />
       )}
+
+      {/* ── ログアウトメニュー（右上アイコン削除→FlatList下部に移動） ── */}
+      <Modal visible={menuVisible} transparent animationType="fade">
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
+          <View style={styles.menuSheet}>
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuEmail} numberOfLines={1}>{user?.email}</Text>
+              <Text style={styles.menuRole}>サポーター</Text>
+            </View>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              setMenuVisible(false);
+              Alert.alert("ログアウト", "ログアウトしますか？", [
+                { text: "キャンセル", style: "cancel" },
+                { text: "ログアウト", style: "destructive", onPress: () => signOut() },
+              ]);
+            }}>
+              <Text style={styles.menuItemTextDanger}>ログアウト</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: T.bg },
+
+  // Header
   header: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12,
-    backgroundColor: T.white, borderBottomWidth: 1, borderBottomColor: T.gray5,
+    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 14,
+    backgroundColor: T.dark2,
+    borderBottomWidth: 1, borderBottomColor: T.gray5,
   },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   logoIcon: {
     width: 28, height: 28, backgroundColor: T.red, borderRadius: 6,
     alignItems: "center", justifyContent: "center",
   },
-  logoText: { fontSize: 20, fontWeight: "900", color: T.dark, letterSpacing: 1 },
-  avatarIcon: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: T.red,
-    alignItems: "center", justifyContent: "center",
-  },
-  avatarIconText: {
-    color: "#fff", fontSize: 14, fontWeight: "800",
-  },
+  logoText: { fontSize: 20, fontWeight: "900", color: T.white, letterSpacing: 1 },
 
-  // メニュー
-  menuOverlay: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-start", alignItems: "flex-end",
-    paddingTop: 100, paddingRight: 16,
-  },
-  menuSheet: {
-    backgroundColor: "#fff", borderRadius: 16, width: 260,
-    paddingVertical: 8,
-    shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
-  },
-  menuHeader: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-  },
-  menuAvatar: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: T.red,
-    alignItems: "center", justifyContent: "center",
-  },
-  menuAvatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  menuEmail: { fontSize: 13, fontWeight: "600", color: T.dark },
-  menuRole: { fontSize: 11, color: T.gray3, marginTop: 2 },
-  menuDivider: { height: 1, backgroundColor: T.gray5, marginVertical: 4 },
-  menuItem: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: 16, paddingVertical: 13,
-  },
-  menuItemIcon: { fontSize: 16, width: 22, textAlign: "center" },
-  menuItemText: { fontSize: 14, color: T.dark, fontWeight: "500" },
-  menuItemTextDanger: { fontSize: 14, color: "#E8002D", fontWeight: "600" },
+  // Search
   searchBox: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: T.bg, borderRadius: 10, borderWidth: 1, borderColor: T.gray5,
-    paddingHorizontal: 12, paddingVertical: 8, margin: 16, marginBottom: 0,
+    backgroundColor: T.dark3, borderRadius: 10, borderWidth: 1, borderColor: T.gray5,
+    paddingHorizontal: 14, paddingVertical: 10,
+    margin: 16, marginBottom: 0,
   },
   searchIcon: { fontSize: 14 },
-  searchInput: { flex: 1, fontSize: 13, color: T.dark },
+  searchInput: { flex: 1, fontSize: 13, color: T.white },
+
+  // Category chips
   catScroll: { flexGrow: 0, marginTop: 12 },
   catScrollContent: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
   catChip: {
     borderWidth: 1, borderColor: T.gray5, borderRadius: 20,
-    paddingVertical: 5, paddingHorizontal: 14, backgroundColor: T.white,
+    paddingVertical: 5, paddingHorizontal: 14, backgroundColor: T.dark3,
   },
-  catChipActive: { backgroundColor: T.dark, borderColor: T.dark },
-  catChipText: { fontSize: 12, fontWeight: "600", color: T.gray2 },
+  catChipActive: { backgroundColor: T.red, borderColor: T.red },
+  catChipText: { fontSize: 12, fontWeight: "600", color: T.gray3 },
   catChipTextActive: { color: T.white },
-  list: { padding: 16, gap: 10 },
+
+  // List
+  list: { padding: 16, gap: 12, paddingBottom: 100 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: { textAlign: "center", color: T.gray3, marginTop: 60, fontSize: 15 },
+
+  // Card
   card: {
-    flexDirection: "row", backgroundColor: T.white, borderRadius: 14,
-    padding: 14, gap: 12,
+    backgroundColor: T.card, borderRadius: 16, overflow: "hidden",
     borderWidth: 1, borderColor: T.gray5,
-    shadowColor: "#000", shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
-  cardAvatarWrap: { paddingTop: 2 },
-  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: T.gray5 },
-  avatarFallback: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: T.red, justifyContent: "center", alignItems: "center",
-    borderWidth: 2, borderColor: T.gray5,
-  },
-  avatarInitial: { color: T.white, fontSize: 20, fontWeight: "800" },
-  cardBody: { flex: 1 },
-  cardTopRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 3 },
-  driverName: { fontSize: 15, fontWeight: "800", color: T.dark },
+  cardCover: { width: "100%", height: 120, resizeMode: "cover" },
+  cardCoverFallback: { backgroundColor: T.dark3, justifyContent: "flex-end" },
+  cardCoverAccent: { height: 3, width: "100%" },
+
   catBadge: {
-    borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6,
-    borderWidth: 1,
+    position: "absolute", top: 10, left: 10,
+    borderWidth: 1, borderRadius: 4,
+    paddingVertical: 2, paddingHorizontal: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
-  catBadgeText: { fontSize: 9, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
-  carNumber: { marginLeft: "auto", fontSize: 15, fontWeight: "700", color: T.gray3, letterSpacing: 1 },
-  catchphrase: { color: T.red, fontStyle: "italic", fontSize: 11, fontWeight: "700", marginBottom: 4 },
-  bio: { fontSize: 11, color: T.gray2, lineHeight: 17, marginBottom: 6 },
-  statsRow: { flexDirection: "row", gap: 12 },
-  stat: { fontSize: 11, fontWeight: "600", color: T.gray2 },
+  catBadgeText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" },
+
+  cardBody: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 14, paddingVertical: 12, gap: 10,
+  },
+  cardAvatarWrap: { marginTop: -28 },
+  avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: T.dark2 },
+  avatarFallback: { backgroundColor: T.red, justifyContent: "center", alignItems: "center" },
+  avatarInitial: { color: T.white, fontSize: 18, fontWeight: "800" },
+
+  cardInfo: { flex: 1 },
+  cardTopRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  driverName: { fontSize: 15, fontWeight: "800", color: T.white, flex: 1 },
+  carNumber: { fontSize: 13, fontWeight: "700", color: T.gray3, letterSpacing: 1 },
+  teamName: { fontSize: 11, color: T.gray3, marginTop: 1 },
+  catchphrase: { fontSize: 11, color: T.red, fontStyle: "italic", marginTop: 3 },
+
+  supporterBadge: { alignItems: "center" },
+  supporterCount: { fontSize: 18, fontWeight: "900", color: T.white },
+  supporterLabel: { fontSize: 9, color: T.gray3, marginTop: 1 },
+
+  // Menu
+  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  menuSheet: {
+    backgroundColor: T.dark3, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: 40,
+  },
+  menuHeader: { marginBottom: 16 },
+  menuEmail: { fontSize: 14, fontWeight: "600", color: T.white },
+  menuRole: { fontSize: 12, color: T.gray3, marginTop: 2 },
+  menuDivider: { height: 1, backgroundColor: T.gray5, marginBottom: 16 },
+  menuItem: { paddingVertical: 14 },
+  menuItemTextDanger: { fontSize: 15, color: T.red, fontWeight: "700", textAlign: "center" },
 });

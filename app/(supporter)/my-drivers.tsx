@@ -6,7 +6,19 @@ import {
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-import { Colors } from "../../constants/colors";
+// dark theme colors
+const Colors = {
+  primary: "#E8002D",
+  black: "#0A0A0A",
+  white: "#FFFFFF",
+  background: "#0A0A0A",
+  surface: "#161616",
+  border: "#222222",
+  gray100: "#1A1A1A",
+  gray300: "#555555",
+  gray500: "#888888",
+  gray700: "#AAAAAA",
+};
 import { Driver, ReturnItem } from "../../lib/types";
 
 const { width: SCREEN_W } = Dimensions.get("window");

@@ -131,8 +131,8 @@ export default function DriverProfilePage() {
     </View>
   );
 
-  const fullName = driver.profiles?.full_name ?? driver.full_name ?? "";
-  const avatarUrl = driver.profiles?.avatar_url ?? driver.avatar_url;
+  const fullName = (driver as any).profiles?.full_name ?? driver.full_name ?? "";
+  const avatarUrl = (driver as any).profiles?.avatar_url ?? driver.avatar_url;
   const cat = driver.category;
   const activeYears = calcActiveYears(driver);
 

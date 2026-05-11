@@ -1,15 +1,26 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../constants/colors";
 
 export default function DriverLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.gray300,
-        tabBarStyle: { borderTopColor: Colors.border },
+        tabBarActiveTintColor: "#E8002D",
+        tabBarInactiveTintColor: "#555555",
+        tabBarStyle: {
+          backgroundColor: "#111111",
+          borderTopColor: "#222222",
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: "700",
+          letterSpacing: 0.3,
+        },
       }}
     >
       <Tabs.Screen
@@ -17,7 +28,7 @@ export default function DriverLayout() {
         options={{
           title: "ホーム",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
@@ -26,16 +37,16 @@ export default function DriverLayout() {
         options={{
           title: "お返し",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="gift-outline" size={size} color={color} />
+            <Ionicons name="gift" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="setup"
         options={{
-          title: "プロフィール設定",
+          title: "設定",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="settings" size={size} color={color} />
           ),
         }}
       />

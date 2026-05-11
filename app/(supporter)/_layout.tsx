@@ -1,15 +1,26 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../constants/colors";
 
 export default function SupporterLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.gray300,
-        tabBarStyle: { borderTopColor: Colors.border },
+        tabBarActiveTintColor: "#E8002D",
+        tabBarInactiveTintColor: "#555555",
+        tabBarStyle: {
+          backgroundColor: "#111111",
+          borderTopColor: "#222222",
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: "700",
+          letterSpacing: 0.3,
+        },
       }}
     >
       <Tabs.Screen
@@ -17,7 +28,7 @@ export default function SupporterLayout() {
         options={{
           title: "探す",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size} color={color} />
+            <Ionicons name="search" size={size} color={color} />
           ),
         }}
       />
@@ -26,7 +37,7 @@ export default function SupporterLayout() {
         options={{
           title: "マイ選手",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+            <Ionicons name="flag" size={size} color={color} />
           ),
         }}
       />
