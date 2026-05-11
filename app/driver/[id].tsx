@@ -4,11 +4,11 @@ import {
   Image, Modal, Alert, ActivityIndicator, Linking, Dimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-
-const { width: SCREEN_W } = Dimensions.get("window");
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { Driver, ReturnItem } from "../../lib/types";
+
+const { width: SCREEN_W } = Dimensions.get("window");
 
 const T = {
   red: "#E8002D",
@@ -20,7 +20,7 @@ const T = {
   gray3: "#888",
   gray4: "#BDBDBD",
   gray5: "#E8E8E8",
-  bg: "#F5F5F5",
+  bg: "#F7F7F7",
   white: "#FFFFFF",
 };
 
@@ -30,14 +30,31 @@ const CAT_COLORS: Record<string, string> = {
 const CAT_BG: Record<string, string> = {
   sf: "#FFF0F3", f4: "#EEF3FF", kart: "#EEFFEE", other: "#F5F5F5",
 };
-
 const RACE_CATEGORY_LABEL: Record<string, string> = {
-  kart: "カート", f4: "F4", sf: "SF", other: "その他",
+  kart: "カート", f4: "F4", sf: "スーパーフォーミュラ", other: "その他",
 };
 
 type DriverDetail = Driver & { profiles: { full_name: string; avatar_url?: string } };
 
 const TABS = ["プロフィール", "応援メニュー"];
+
+/** created_at または race_history の最初の年から活動年数を算出 */
+function calcActiveYears(driver: DriverDetail): string {
+  // career_timeline があれば最古の年から
+  try {
+    if (driver.career_timeline) {
+      const tl: { year: string }[] = JSON.parse(driver.career_timeline);
+      if (tl.length > 0) {
+        const oldest = Math.min(...tl.map((t) => parseInt(t.year)).filter((y) => !isNaN(y)));
+        if (!isNaN(oldest)) {
+          const years = new Date().getFullYear() - oldest;
+          return years <= 0 ? "1" : String(years);
+        }
+      }
+    }
+  } catch {}
+  return "—";
+}
 
 export default function DriverProfilePage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -93,40 +110,89 @@ export default function DriverProfilePage() {
     else Alert.alert("応援ありがとうございます！🏎", `${driver.profiles?.full_name}への応援が完了しました。`, [{ text: "OK" }]);
   }
 
+  function goBack() {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(supporter)/discover");
+    }
+  }
+
   const individualItems = returnItems.filter((i) => i.target === "individual" || i.target === "both");
   const corporateItems = returnItems.filter((i) => i.target === "corporate" || i.target === "both");
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={T.red} /></View>;
-  if (!driver) return <View style={styles.center}><Text>ドライバーが見つかりません</Text></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator color={T.red} size="large" /></View>;
+  if (!driver) return (
+    <View style={styles.center}>
+      <Text style={{ color: T.gray3, fontSize: 15 }}>ドライバーが見つかりません</Text>
+      <TouchableOpacity onPress={goBack} style={{ marginTop: 16 }}>
+        <Text style={{ color: T.red }}>← 一覧に戻る</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
-  const fullName = driver.profiles?.full_name ?? "";
+  const fullName = driver.profiles?.full_name ?? driver.full_name ?? "";
   const avatarUrl = driver.profiles?.avatar_url ?? driver.avatar_url;
   const cat = driver.category;
+  const activeYears = calcActiveYears(driver);
+
+  let timeline: { year: string; event: string }[] = [];
+  try { if (driver.career_timeline) timeline = JSON.parse(driver.career_timeline); } catch {}
+
+  let sponsors: { name: string; logo_url?: string }[] = [];
+  try { if (driver.sponsors) sponsors = JSON.parse(driver.sponsors); } catch {}
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView style={styles.container} stickyHeaderIndices={[2]}>
-        {/* Cover */}
-        <View style={styles.coverSection}>
+
+        {/* ─── HERO ─── */}
+        <View style={styles.heroSection}>
+          {/* Cover image / dark bg */}
           {driver.cover_url ? (
-            <Image source={{ uri: driver.cover_url }} style={styles.cover} />
+            <Image source={{ uri: driver.cover_url }} style={styles.heroCover} />
           ) : (
-            <View style={styles.cover}>
-              {/* Speed lines decoration */}
-              {[...Array(8)].map((_, i) => (
-                <View key={i} style={[styles.speedLine, { left: -20 + i * 55 }]} />
+            <View style={styles.heroCoverFallback}>
+              {[...Array(12)].map((_, i) => (
+                <View key={i} style={[styles.speedLine, { left: -40 + i * 60 }]} />
               ))}
-              <View style={styles.coverLabel}>
-                <View style={{ width: 48, height: 2, backgroundColor: T.red, borderRadius: 1, marginBottom: 4 }} />
-                <Text style={styles.coverLabelText}>RACING SCENE</Text>
-              </View>
             </View>
           )}
+          {/* Gradient overlay */}
+          <View style={styles.heroGradient} />
+
           {/* Back button */}
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.backBtnText}>←</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={goBack}>
+            <Text style={styles.backBtnText}>‹</Text>
           </TouchableOpacity>
-          {/* Overlapping avatar */}
+
+          {/* Hero content — bottom of cover */}
+          <View style={styles.heroContent}>
+            {/* Category badge */}
+            <View style={[styles.heroCatBadge, { backgroundColor: CAT_COLORS[cat] ?? T.gray2 }]}>
+              <Text style={styles.heroCatText}>{RACE_CATEGORY_LABEL[cat]}</Text>
+            </View>
+
+            {/* Name + car number */}
+            <View style={styles.heroNameRow}>
+              <Text style={styles.heroName}>{fullName}</Text>
+              {driver.car_number ? (
+                <Text style={styles.heroCarNumber}>#{driver.car_number}</Text>
+              ) : null}
+            </View>
+
+            {/* Team / Series */}
+            {(driver.team_name || driver.series_name) && (
+              <Text style={styles.heroTeam}>
+                {[driver.team_name, driver.series_name].filter(Boolean).join("  /  ")}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        {/* ─── PROFILE BLOCK ─── */}
+        <View style={styles.profileBlock}>
+          {/* Avatar */}
           <View style={styles.avatarWrapper}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatar} />
@@ -136,44 +202,42 @@ export default function DriverProfilePage() {
               </View>
             )}
           </View>
-        </View>
 
-        {/* Profile info */}
-        <View style={styles.profileBlock}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{fullName}</Text>
-            <View style={[styles.badge, { backgroundColor: CAT_BG[cat] || "#F5F5F5", borderColor: (CAT_COLORS[cat] || T.gray2) + "33" }]}>
-              <Text style={[styles.badgeText, { color: CAT_COLORS[cat] || T.gray2 }]}>
-                {RACE_CATEGORY_LABEL[cat]}
-              </Text>
-            </View>
-            {driver.car_number ? (
-              <Text style={styles.carNumber}>#{driver.car_number}</Text>
-            ) : null}
-          </View>
-
-          <View style={styles.metaRow}>
-            {driver.age ? <Text style={styles.meta}>{driver.age}歳</Text> : null}
-            {driver.hometown ? <Text style={styles.meta}>{driver.hometown}</Text> : null}
-            {driver.team_name ? <Text style={styles.meta}>{driver.team_name}</Text> : null}
-          </View>
-
+          {/* Catchphrase */}
           {driver.catchphrase ? (
             <Text style={styles.catchphrase}>「{driver.catchphrase}」</Text>
           ) : null}
 
+          {/* Meta pills */}
+          <View style={styles.metaRow}>
+            {driver.age ? (
+              <View style={styles.metaPill}><Text style={styles.metaPillText}>🎂 {driver.age}歳</Text></View>
+            ) : null}
+            {driver.hometown ? (
+              <View style={styles.metaPill}><Text style={styles.metaPillText}>📍 {driver.hometown}</Text></View>
+            ) : null}
+          </View>
+
           {/* Stats bar */}
           <View style={styles.statsBar}>
-            {[
-              { label: "応援者", value: String(driver.total_supporters ?? 0), unit: "名" },
-              { label: "月間収益", value: "¥" + ((driver.total_supporters ?? 0) * 1500 / 1000).toFixed(0) + "K", unit: "" },
-              { label: "活動年数", value: driver.age ? String(Math.max(1, Math.floor((driver.age - 15) / 2))) : "—", unit: driver.age ? "年" : "" },
-            ].map((s, i) => (
-              <View key={i} style={[styles.statItem, i < 2 && styles.statDivider]}>
-                <Text style={styles.statValue}>{s.value}{s.unit}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
-              </View>
-            ))}
+            <View style={[styles.statItem, styles.statDivider]}>
+              <Text style={styles.statValue}>{driver.total_supporters ?? 0}<Text style={styles.statUnit}>名</Text></Text>
+              <Text style={styles.statLabel}>応援者</Text>
+            </View>
+            <View style={[styles.statItem, styles.statDivider]}>
+              <Text style={styles.statValue}>
+                {((driver.monthly_revenue ?? 0) / 10000).toFixed(0)}
+                <Text style={styles.statUnit}>万</Text>
+              </Text>
+              <Text style={styles.statLabel}>月間支援額</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {activeYears}
+                {activeYears !== "—" ? <Text style={styles.statUnit}>年</Text> : null}
+              </Text>
+              <Text style={styles.statLabel}>活動年数</Text>
+            </View>
           </View>
 
           {/* SNS */}
@@ -199,7 +263,7 @@ export default function DriverProfilePage() {
           )}
         </View>
 
-        {/* Tabs — sticky */}
+        {/* ─── TABS (sticky) ─── */}
         <View style={styles.tabBar}>
           {TABS.map((t) => (
             <TouchableOpacity
@@ -212,147 +276,126 @@ export default function DriverProfilePage() {
           ))}
         </View>
 
-        {/* Tab content */}
+        {/* ─── PROFILE TAB ─── */}
         {tab === "プロフィール" && (
-          <View>
-            {/* ── ストーリー ── */}
-            <View style={styles.section}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.sectionAccent} />
-                <Text style={styles.sectionHeading}>ストーリー</Text>
-              </View>
-              <Text style={styles.bioText}>{driver.bio ?? "このドライバーのストーリーは準備中です。"}</Text>
-            </View>
+          <View style={{ paddingBottom: 40 }}>
 
-            {/* ── フォトギャラリー ── */}
+            {/* フォトギャラリー */}
             {driver.photo_urls && driver.photo_urls.length > 0 && (
               <View style={styles.section}>
-                <View style={styles.sectionTitleRow}>
-                  <View style={styles.sectionAccent} />
-                  <Text style={styles.sectionHeading}>フォトギャラリー</Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.galleryScroll}>
-                  {driver.photo_urls.map((url, i) => (
-                    <Image key={i} source={{ uri: url }} style={styles.galleryPhoto} />
-                  ))}
+                <SectionTitle>フォトギャラリー</SectionTitle>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }}>
+                  <View style={{ paddingHorizontal: 20, flexDirection: "row", gap: 10 }}>
+                    {driver.photo_urls.map((url, i) => (
+                      <Image key={i} source={{ uri: url }} style={styles.galleryPhoto} />
+                    ))}
+                  </View>
                 </ScrollView>
               </View>
             )}
 
-            {/* ── 経歴タイムライン ── */}
-            {(() => {
-              let timeline: { year: string; event: string }[] = [];
-              try { if (driver.career_timeline) timeline = JSON.parse(driver.career_timeline); } catch {}
-              return timeline.length > 0 ? (
-                <View style={styles.section}>
-                  <View style={styles.sectionTitleRow}>
-                    <View style={styles.sectionAccent} />
-                    <Text style={styles.sectionHeading}>経歴</Text>
-                  </View>
-                  <View style={styles.timeline}>
-                    {timeline.map((item, i) => (
-                      <View key={i} style={styles.timelineRow}>
-                        <View style={styles.timelineLeft}>
-                          <Text style={styles.timelineYear}>{item.year}</Text>
-                          {i < timeline.length - 1 && <View style={styles.timelineLine} />}
-                        </View>
-                        <View style={styles.timelineRight}>
-                          <View style={styles.timelineDot} />
-                          <Text style={styles.timelineEvent}>{item.event}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ) : null;
-            })()}
-
-            {/* ── 今季目標 ── */}
+            {/* ストーリー */}
             <View style={styles.section}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.sectionAccent} />
-                <Text style={styles.sectionHeading}>今季目標</Text>
-              </View>
-              {driver.goal ? (
-                driver.goal.split("\n").filter(Boolean).map((line, i) => (
-                  <View key={i} style={styles.goalRow}>
-                    <View style={styles.goalDot} />
-                    <Text style={styles.goalText}>{line}</Text>
-                  </View>
-                ))
-              ) : <Text style={styles.bioText}>今季目標は準備中です</Text>}
+              <SectionTitle>ストーリー</SectionTitle>
+              <Text style={styles.bioText}>{driver.bio ?? "このドライバーのストーリーは準備中です。"}</Text>
             </View>
 
-            {/* ── 戦績 ── */}
-            <View style={styles.section}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.sectionAccent} />
-                <Text style={styles.sectionHeading}>戦績</Text>
+            {/* 経歴タイムライン */}
+            {timeline.length > 0 && (
+              <View style={styles.section}>
+                <SectionTitle>経歴</SectionTitle>
+                <View style={styles.timeline}>
+                  {timeline.map((item, i) => (
+                    <View key={i} style={styles.timelineRow}>
+                      <View style={styles.timelineLeft}>
+                        <Text style={styles.timelineYear}>{item.year}</Text>
+                      </View>
+                      <View style={styles.timelineCenter}>
+                        <View style={styles.timelineDot} />
+                        {i < timeline.length - 1 && <View style={styles.timelineLine} />}
+                      </View>
+                      <View style={styles.timelineRight}>
+                        <Text style={styles.timelineEvent}>{item.event}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
               </View>
-              {driver.race_history ? (
-                driver.race_history.split("\n").filter(Boolean).map((line, i) => (
-                  <View key={i} style={styles.raceHistoryRow}>
-                    <Text style={styles.raceHistoryText}>{line}</Text>
-                  </View>
-                ))
-              ) : <Text style={styles.bioText}>戦績は準備中です</Text>}
+            )}
+
+            {/* 今季目標 */}
+            <View style={styles.section}>
+              <SectionTitle>今季目標</SectionTitle>
+              {driver.goal
+                ? driver.goal.split("\n").filter(Boolean).map((line, i) => (
+                    <View key={i} style={styles.goalRow}>
+                      <View style={styles.goalDot} />
+                      <Text style={styles.goalText}>{line}</Text>
+                    </View>
+                  ))
+                : <Text style={styles.bioText}>今季目標は準備中です</Text>}
             </View>
 
-            {/* ── スポンサー ── */}
-            {(() => {
-              let sponsors: { name: string; logo_url?: string }[] = [];
-              try { if (driver.sponsors) sponsors = JSON.parse(driver.sponsors); } catch {}
-              return sponsors.length > 0 ? (
-                <View style={[styles.section, { marginBottom: 32 }]}>
-                  <View style={styles.sectionTitleRow}>
-                    <View style={styles.sectionAccent} />
-                    <Text style={styles.sectionHeading}>スポンサー</Text>
-                  </View>
-                  <View style={styles.sponsorRow}>
-                    {sponsors.map((s, i) => (
-                      <View key={i} style={styles.sponsorChip}>
-                        {s.logo_url ? (
-                          <Image source={{ uri: s.logo_url }} style={styles.sponsorLogo} />
-                        ) : (
-                          <Text style={styles.sponsorName}>{s.name}</Text>
-                        )}
-                      </View>
-                    ))}
-                  </View>
+            {/* 戦績 */}
+            <View style={styles.section}>
+              <SectionTitle>戦績</SectionTitle>
+              {driver.race_history
+                ? driver.race_history.split("\n").filter(Boolean).map((line, i) => (
+                    <View key={i} style={styles.raceRow}>
+                      <Text style={styles.raceBullet}>▸</Text>
+                      <Text style={styles.raceText}>{line}</Text>
+                    </View>
+                  ))
+                : <Text style={styles.bioText}>戦績は準備中です</Text>}
+            </View>
+
+            {/* スポンサー */}
+            {sponsors.length > 0 && (
+              <View style={styles.section}>
+                <SectionTitle>スポンサー</SectionTitle>
+                <View style={styles.sponsorRow}>
+                  {sponsors.map((s, i) => (
+                    <View key={i} style={styles.sponsorChip}>
+                      {s.logo_url
+                        ? <Image source={{ uri: s.logo_url }} style={styles.sponsorLogo} />
+                        : <Text style={styles.sponsorName}>{s.name}</Text>}
+                    </View>
+                  ))}
                 </View>
-              ) : null;
-            })()}
+              </View>
+            )}
           </View>
         )}
 
+        {/* ─── 応援メニュー TAB ─── */}
         {tab === "応援メニュー" && (
           <View style={styles.plansSection}>
             {individualItems.length > 0 && (
               <>
-                <Text style={styles.planCatLabel}>個人向け</Text>
+                <Text style={styles.planCatLabel}>🙋 個人向け</Text>
                 {individualItems.map((item) => (
                   <ReturnCard key={item.id} item={item} onPress={() => setSelectedItem(item)} />
                 ))}
               </>
             )}
-
             {corporateItems.length > 0 && (
               <>
-                <Text style={[styles.planCatLabel, { marginTop: 16 }]}>企業向け</Text>
+                <Text style={[styles.planCatLabel, { marginTop: 20 }]}>🏢 企業向け</Text>
                 {corporateItems.map((item) => (
                   <ReturnCard key={item.id} item={item} onPress={() => setSelectedItem(item)} />
                 ))}
               </>
             )}
-
             {returnItems.length === 0 && (
-              <Text style={styles.empty}>応援メニューは準備中です</Text>
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>応援メニューは準備中です</Text>
+              </View>
             )}
           </View>
         )}
       </ScrollView>
 
-      {/* Purchase modal */}
+      {/* ─── PURCHASE MODAL ─── */}
       <Modal visible={!!selectedItem} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
@@ -365,7 +408,9 @@ export default function DriverProfilePage() {
                   <Text style={styles.modalEmoji}>🏁</Text>
                 )}
                 <Text style={styles.modalTitle}>{selectedItem.title}</Text>
-                <Text style={styles.modalDesc}>{selectedItem.description}</Text>
+                {selectedItem.description ? (
+                  <Text style={styles.modalDesc}>{selectedItem.description}</Text>
+                ) : null}
                 <View style={styles.modalPriceBox}>
                   <Text style={styles.modalPriceLabel}>
                     {selectedItem.billing_type === "monthly" ? "月額" : "金額"}
@@ -400,8 +445,19 @@ export default function DriverProfilePage() {
   );
 }
 
+// ── Section title helper ──
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <View style={styles.sectionTitleRow}>
+      <View style={styles.sectionAccent} />
+      <Text style={styles.sectionHeading}>{children}</Text>
+    </View>
+  );
+}
+
+// ── Return Card ──
 function ReturnCard({ item, onPress }: { item: ReturnItem; onPress: () => void }) {
-  const isSoldOut = item.remaining !== null && item.remaining === 0;
+  const isSoldOut = item.remaining !== null && item.remaining !== undefined && item.remaining === 0;
   return (
     <TouchableOpacity
       style={[styles.returnCard, isSoldOut && { opacity: 0.5 }]}
@@ -409,34 +465,29 @@ function ReturnCard({ item, onPress }: { item: ReturnItem; onPress: () => void }
       disabled={isSoldOut}
       activeOpacity={0.85}
     >
-      {/* 画像バナー */}
       {item.image_url ? (
         <Image source={{ uri: item.image_url }} style={styles.returnImage} />
       ) : (
         <View style={styles.returnImagePlaceholder}>
-          <Text style={{ fontSize: 36 }}>🎁</Text>
+          <Text style={{ fontSize: 40 }}>🎁</Text>
         </View>
       )}
-      {/* SOLD OUT オーバーレイ */}
       {isSoldOut && (
         <View style={styles.soldOutOverlay}>
           <Text style={styles.soldOutLabel}>SOLD OUT</Text>
         </View>
       )}
-      {/* 課金バッジ */}
       <View style={styles.billingBadgeSmall}>
         <Text style={styles.billingBadgeSmallText}>
           {item.billing_type === "monthly" ? "月額" : "単発"}
         </Text>
       </View>
-
-      {/* 情報エリア */}
       <View style={styles.returnBody}>
         <View style={styles.returnBodyTop}>
-          <Text style={styles.returnTitle}>{item.title}</Text>
+          <Text style={styles.returnTitle} numberOfLines={2}>{item.title}</Text>
           <Text style={styles.returnPrice}>
             ¥{item.price.toLocaleString()}
-            <Text style={styles.returnBilling}>{item.billing_type === "monthly" ? "/月" : ""}</Text>
+            {item.billing_type === "monthly" && <Text style={styles.returnBilling}>/月</Text>}
           </Text>
         </View>
         {item.description ? (
@@ -456,62 +507,87 @@ function ReturnCard({ item, onPress }: { item: ReturnItem; onPress: () => void }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.bg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.white },
 
-  // Cover
-  coverSection: { height: 200, position: "relative" },
-  cover: {
-    width: "100%", height: 160, backgroundColor: T.dark,
-    overflow: "hidden", justifyContent: "center", alignItems: "center",
+  // ── Hero ──
+  heroSection: { height: 260, position: "relative" },
+  heroCover: { width: "100%", height: "100%", resizeMode: "cover", position: "absolute" },
+  heroCoverFallback: {
+    width: "100%", height: "100%", backgroundColor: T.dark,
+    overflow: "hidden", position: "absolute",
   },
   speedLine: {
-    position: "absolute", width: 1, top: 0, bottom: 0,
-    backgroundColor: "white", opacity: 0.12,
+    position: "absolute", width: 2, top: 0, bottom: 0,
+    backgroundColor: T.white, opacity: 0.06,
     transform: [{ skewX: "-20deg" }],
   },
-  coverLabel: { alignItems: "center" },
-  coverLabelText: { color: T.gray2, fontSize: 10, letterSpacing: 2, opacity: 0.5 },
+  heroGradient: {
+    position: "absolute", bottom: 0, left: 0, right: 0, height: 180,
+    // フェードをCSSグラデ代わりに複数Viewで表現
+    backgroundColor: "transparent",
+  },
   backBtn: {
-    position: "absolute", top: 12, left: 12,
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    position: "absolute", top: 48, left: 16,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center", justifyContent: "center",
+    zIndex: 10,
   },
-  backBtnText: { color: T.white, fontSize: 16 },
-  avatarWrapper: {
-    position: "absolute", bottom: 0, left: 20,
-    borderRadius: 36, borderWidth: 3, borderColor: T.white,
-    shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 4, elevation: 4,
+  backBtnText: { color: T.white, fontSize: 26, lineHeight: 30, marginLeft: -2 },
+  heroContent: {
+    position: "absolute", bottom: 20, left: 20, right: 20,
   },
-  avatar: { width: 72, height: 72, borderRadius: 36 },
-  avatarFallback: { backgroundColor: T.red, justifyContent: "center", alignItems: "center" },
-  avatarInitial: { color: T.white, fontSize: 28, fontWeight: "800" },
+  heroCatBadge: {
+    alignSelf: "flex-start", borderRadius: 4,
+    paddingVertical: 3, paddingHorizontal: 10, marginBottom: 8,
+  },
+  heroCatText: { color: T.white, fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" },
+  heroNameRow: { flexDirection: "row", alignItems: "flex-end", gap: 10, marginBottom: 4 },
+  heroName: { fontSize: 28, fontWeight: "900", color: T.white, letterSpacing: 0.5, flex: 1 },
+  heroCarNumber: { fontSize: 22, fontWeight: "700", color: "rgba(255,255,255,0.6)", letterSpacing: 1 },
+  heroTeam: { fontSize: 12, color: "rgba(255,255,255,0.65)", letterSpacing: 0.3 },
 
-  // Profile block
+  // ── Profile block ──
   profileBlock: {
-    backgroundColor: T.white, padding: 20, paddingTop: 36,
+    backgroundColor: T.white, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
     borderBottomWidth: 1, borderBottomColor: T.gray5,
   },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
-  name: { fontSize: 22, fontWeight: "900", color: T.dark },
-  badge: {
-    borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8, borderWidth: 1,
+  avatarWrapper: {
+    marginTop: -52, marginBottom: 12,
+    width: 80, height: 80, borderRadius: 40,
+    borderWidth: 3, borderColor: T.white,
+    shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 6, elevation: 5,
+    overflow: "hidden",
   },
-  badgeText: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  carNumber: { fontSize: 18, fontWeight: "700", color: T.gray3, letterSpacing: 1 },
-  metaRow: { flexDirection: "row", gap: 12, marginBottom: 6 },
-  meta: { fontSize: 12, color: T.gray3 },
-  catchphrase: { fontSize: 13, color: T.red, fontWeight: "700", fontStyle: "italic", marginBottom: 14 },
+  avatar: { width: "100%", height: "100%", borderRadius: 40 },
+  avatarFallback: { backgroundColor: T.red, justifyContent: "center", alignItems: "center" },
+  avatarInitial: { color: T.white, fontSize: 30, fontWeight: "800" },
+  catchphrase: {
+    fontSize: 14, color: T.red, fontWeight: "700", fontStyle: "italic",
+    marginBottom: 12, lineHeight: 22,
+  },
+  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 14 },
+  metaPill: {
+    backgroundColor: T.bg, borderRadius: 20,
+    paddingVertical: 4, paddingHorizontal: 10,
+  },
+  metaPillText: { fontSize: 12, color: T.gray2 },
+
+  // Stats
   statsBar: {
     flexDirection: "row", borderWidth: 1, borderColor: T.gray5,
-    borderRadius: 10, overflow: "hidden", marginBottom: 12,
+    borderRadius: 12, overflow: "hidden", marginBottom: 14,
+    backgroundColor: T.white,
   },
-  statItem: { flex: 1, paddingVertical: 10, alignItems: "center" },
+  statItem: { flex: 1, paddingVertical: 12, alignItems: "center" },
   statDivider: { borderRightWidth: 1, borderRightColor: T.gray5 },
-  statValue: { fontSize: 20, fontWeight: "800", color: T.dark, letterSpacing: 0.5 },
-  statLabel: { fontSize: 10, color: T.gray3, marginTop: 1 },
-  snsRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  statValue: { fontSize: 22, fontWeight: "900", color: T.dark },
+  statUnit: { fontSize: 13, fontWeight: "400", color: T.gray3 },
+  statLabel: { fontSize: 10, color: T.gray3, marginTop: 2, letterSpacing: 0.3 },
+
+  // SNS
+  snsRow: { flexDirection: "row", gap: 8 },
   snsBtn: {
     flex: 1, borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
     paddingVertical: 8, alignItems: "center",
@@ -524,128 +600,140 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: T.gray5,
   },
   tabItem: {
-    flex: 1, paddingVertical: 11, alignItems: "center",
-    borderBottomWidth: 2, borderBottomColor: "transparent",
+    flex: 1, paddingVertical: 13, alignItems: "center",
+    borderBottomWidth: 2.5, borderBottomColor: "transparent",
   },
   tabItemActive: { borderBottomColor: T.red },
-  tabText: { fontSize: 12, fontWeight: "600", color: T.gray3 },
-  tabTextActive: { color: T.red },
+  tabText: { fontSize: 13, fontWeight: "600", color: T.gray3 },
+  tabTextActive: { color: T.red, fontWeight: "700" },
 
-  // Tab content
-  tabContent: {
-    backgroundColor: T.white, padding: 16, marginBottom: 10,
+  // Sections
+  section: {
+    backgroundColor: T.white, marginBottom: 8,
+    paddingHorizontal: 20, paddingVertical: 20,
   },
-  // Section
-  section: { backgroundColor: T.white, marginBottom: 8, padding: 20 },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
-  sectionAccent: { width: 3, height: 16, backgroundColor: T.red, borderRadius: 2 },
+  sectionAccent: { width: 3, height: 18, backgroundColor: T.red, borderRadius: 2 },
   sectionHeading: { fontSize: 15, fontWeight: "900", color: T.dark, letterSpacing: 0.3 },
-  bioText: { fontSize: 14, color: T.gray2, lineHeight: 24 },
+  bioText: { fontSize: 14, color: T.gray2, lineHeight: 26 },
 
   // Gallery
-  galleryScroll: { marginHorizontal: -4 },
-  galleryPhoto: { width: 200, height: 140, borderRadius: 10, marginRight: 10 },
+  galleryPhoto: { width: 220, height: 150, borderRadius: 12, resizeMode: "cover" },
 
   // Timeline
-  timeline: { paddingLeft: 4 },
-  timelineRow: { flexDirection: "row", gap: 16, minHeight: 48 },
-  timelineLeft: { width: 44, alignItems: "flex-end" },
-  timelineYear: { fontSize: 11, fontWeight: "700", color: T.red, paddingTop: 2 },
-  timelineLine: { flex: 1, width: 1, backgroundColor: T.gray5, alignSelf: "center", marginTop: 4, marginBottom: 0 },
-  timelineRight: { flex: 1, flexDirection: "row", gap: 10, paddingBottom: 20 },
-  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.red, marginTop: 4, flexShrink: 0 },
-  timelineEvent: { flex: 1, fontSize: 13, color: T.dark, lineHeight: 20 },
-
-  // Goal / Race history
-  goalRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
-  goalDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.red, marginTop: 6, flexShrink: 0 },
-  goalText: { fontSize: 13, color: T.dark, flex: 1, lineHeight: 20 },
-  raceHistoryRow: {
-    borderLeftWidth: 2, borderLeftColor: T.gray5, paddingLeft: 12, marginBottom: 8,
+  timeline: {},
+  timelineRow: { flexDirection: "row", gap: 0, marginBottom: 0 },
+  timelineLeft: { width: 48, alignItems: "flex-end", paddingTop: 2 },
+  timelineYear: { fontSize: 12, fontWeight: "800", color: T.red },
+  timelineCenter: { width: 24, alignItems: "center" },
+  timelineDot: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: T.red, borderWidth: 2, borderColor: T.white,
+    marginTop: 2, zIndex: 1,
+    shadowColor: T.red, shadowOpacity: 0.4, shadowRadius: 3, elevation: 2,
   },
-  raceHistoryText: { fontSize: 13, color: T.gray2, lineHeight: 20 },
+  timelineLine: { flex: 1, width: 2, backgroundColor: T.gray5, minHeight: 24 },
+  timelineRight: { flex: 1, paddingBottom: 24, paddingTop: 0 },
+  timelineEvent: { fontSize: 13, color: T.dark, lineHeight: 22 },
+
+  // Goal
+  goalRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+  goalDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.red, marginTop: 7, flexShrink: 0 },
+  goalText: { fontSize: 14, color: T.dark, flex: 1, lineHeight: 22 },
+
+  // Race history
+  raceRow: { flexDirection: "row", gap: 8, marginBottom: 8, alignItems: "flex-start" },
+  raceBullet: { fontSize: 12, color: T.red, marginTop: 3 },
+  raceText: { fontSize: 13, color: T.gray2, flex: 1, lineHeight: 22 },
 
   // Sponsors
   sponsorRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sponsorChip: {
     borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
-    paddingVertical: 6, paddingHorizontal: 14,
-    alignItems: "center", justifyContent: "center",
+    paddingVertical: 6, paddingHorizontal: 14, alignItems: "center", justifyContent: "center",
   },
   sponsorLogo: { width: 60, height: 24, resizeMode: "contain" },
   sponsorName: { fontSize: 12, fontWeight: "600", color: T.gray2 },
 
   // Plans
   plansSection: { padding: 16, paddingBottom: 80 },
-  planCatLabel: { fontSize: 12, fontWeight: "700", color: T.gray3, marginBottom: 10, letterSpacing: 0.5, textTransform: "uppercase" },
-  empty: { color: T.gray3, fontSize: 14 },
-
-  // ReturnCard — new card-style with image banner
-  returnCard: {
-    backgroundColor: T.white, borderRadius: 16, marginBottom: 14,
-    borderWidth: 1, borderColor: T.gray5, overflow: "hidden",
-    shadowColor: "#000", shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+  planCatLabel: {
+    fontSize: 12, fontWeight: "800", color: T.gray3,
+    marginBottom: 12, letterSpacing: 0.5, textTransform: "uppercase",
   },
-  returnImage: { width: "100%", height: 180, resizeMode: "cover" },
+  emptyBox: { paddingVertical: 60, alignItems: "center" },
+  emptyText: { color: T.gray3, fontSize: 14 },
+
+  // ReturnCard
+  returnCard: {
+    backgroundColor: T.white, borderRadius: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: T.gray5, overflow: "hidden",
+    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+  },
+  returnImage: { width: "100%", height: 190, resizeMode: "cover" },
   returnImagePlaceholder: {
     width: "100%", height: 140, backgroundColor: T.bg,
     alignItems: "center", justifyContent: "center",
   },
   soldOutOverlay: {
     ...StyleSheet.absoluteFillObject as any,
-    backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center",
-    height: 180,
+    backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center",
+    height: 190,
   },
-  soldOutLabel: { color: T.white, fontWeight: "900", fontSize: 20, letterSpacing: 2 },
+  soldOutLabel: { color: T.white, fontWeight: "900", fontSize: 22, letterSpacing: 3 },
   billingBadgeSmall: {
-    position: "absolute", top: 10, right: 10,
-    backgroundColor: T.dark, borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
+    position: "absolute", top: 12, right: 12,
+    backgroundColor: "rgba(0,0,0,0.75)", borderRadius: 5,
+    paddingVertical: 4, paddingHorizontal: 10,
   },
-  billingBadgeSmallText: { color: T.white, fontSize: 10, fontWeight: "700" },
-  returnBody: { padding: 14 },
-  returnBodyTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 },
-  returnTitle: { fontSize: 15, fontWeight: "800", color: T.dark, flex: 1, marginRight: 8 },
+  billingBadgeSmallText: { color: T.white, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  returnBody: { padding: 16 },
+  returnBodyTop: {
+    flexDirection: "row", justifyContent: "space-between",
+    alignItems: "flex-start", marginBottom: 6, gap: 8,
+  },
+  returnTitle: { fontSize: 15, fontWeight: "800", color: T.dark, flex: 1 },
   returnDesc: { fontSize: 12, color: T.gray2, lineHeight: 18, marginBottom: 10 },
-  returnPrice: { fontSize: 20, fontWeight: "800", color: T.dark, letterSpacing: 0.5 },
+  returnPrice: { fontSize: 22, fontWeight: "900", color: T.dark },
   returnBilling: { fontSize: 12, color: T.gray3, fontWeight: "400" },
   supportBtn: {
     backgroundColor: T.red, borderRadius: 10,
-    paddingVertical: 10, alignItems: "center", marginTop: 4,
+    paddingVertical: 11, alignItems: "center",
   },
   supportBtnText: { color: T.white, fontSize: 13, fontWeight: "700" },
-  remainingText: { fontSize: 11, color: T.red, fontWeight: "700", marginTop: 6, textAlign: "right" },
+  remainingText: { fontSize: 11, color: T.red, fontWeight: "700", marginTop: 8, textAlign: "right" },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "flex-end" },
   modalSheet: {
-    backgroundColor: T.dark2, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingBottom: 44,
+    backgroundColor: T.dark2, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingBottom: 48,
   },
   modalHandle: {
-    alignSelf: "center", width: 36, height: 4, borderRadius: 2,
-    backgroundColor: "#333", marginTop: 12, marginBottom: 0,
+    alignSelf: "center", width: 40, height: 4, borderRadius: 2,
+    backgroundColor: "#333", marginTop: 12,
   },
   modalContent: { padding: 24, alignItems: "center" },
-  modalImage: { width: "100%", height: 200, borderRadius: 12, marginBottom: 16, resizeMode: "cover" },
-  modalEmoji: { fontSize: 44, marginBottom: 10 },
-  modalTitle: { fontSize: 22, fontWeight: "900", color: T.white, marginBottom: 8 },
+  modalImage: { width: "100%", height: 200, borderRadius: 14, marginBottom: 16, resizeMode: "cover" },
+  modalEmoji: { fontSize: 48, marginBottom: 10 },
+  modalTitle: { fontSize: 22, fontWeight: "900", color: T.white, marginBottom: 8, textAlign: "center" },
   modalDesc: { fontSize: 13, color: T.gray3, lineHeight: 20, textAlign: "center", marginBottom: 20 },
   modalPriceBox: {
-    backgroundColor: T.dark3, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20,
+    backgroundColor: T.dark3, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20,
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     width: "100%", marginBottom: 24,
   },
   modalPriceLabel: { fontSize: 13, color: T.gray4 },
-  modalPrice: { fontSize: 32, fontWeight: "800", color: T.white, letterSpacing: 0.5 },
+  modalPrice: { fontSize: 32, fontWeight: "900", color: T.white, letterSpacing: 0.5 },
   billingBadge: {
-    backgroundColor: "#3D2E00", borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
+    backgroundColor: "#3D2E00", borderRadius: 5, paddingVertical: 4, paddingHorizontal: 10,
   },
   billingBadgeText: { fontSize: 10, fontWeight: "700", color: T.yellow },
   confirmBtn: {
-    backgroundColor: T.red, borderRadius: 12, paddingVertical: 16,
+    backgroundColor: T.red, borderRadius: 14, paddingVertical: 16,
     width: "100%", alignItems: "center",
   },
   confirmBtnText: { color: T.white, fontSize: 16, fontWeight: "800" },
   cancelBtn: { paddingVertical: 14, alignItems: "center", marginTop: 4, width: "100%" },
-  cancelBtnText: { color: T.gray3, fontSize: 13 },
+  cancelBtnText: { color: T.gray3, fontSize: 14 },
 });
