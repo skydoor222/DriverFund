@@ -28,7 +28,7 @@ export default function SupporterLayout() {
         options={{
           title: "探す",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
+            <Ionicons name="search-outline" size={size} color={color} />
           ),
         }}
       />
@@ -37,7 +37,7 @@ export default function SupporterLayout() {
         options={{
           title: "マイ選手",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flag" size={size} color={color} />
+            <Ionicons name="flag-outline" size={size} color={color} />
           ),
         }}
       />

@@ -28,7 +28,7 @@ export default function DriverLayout() {
         options={{
           title: "ホーム",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
@@ -37,7 +37,7 @@ export default function DriverLayout() {
         options={{
           title: "お返し",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="gift" size={size} color={color} />
+            <Ionicons name="gift-outline" size={size} color={color} />
           ),
         }}
       />
@@ -46,7 +46,7 @@ export default function DriverLayout() {
         options={{
           title: "設定",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={size} color={color} />
+            <Ionicons name="settings-outline" size={size} color={color} />
           ),
         }}
       />

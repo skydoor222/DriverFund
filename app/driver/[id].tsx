@@ -145,6 +145,23 @@ export default function DriverProfilePage() {
   let raceResults: RaceResult[] = [];
   try { if (driver.race_results) raceResults = JSON.parse(driver.race_results); } catch {}
 
+  // bioをJSONパース（物語型フォーマット）
+  let story: { conflict?: string; why?: string; now?: string; fund_usage?: string; total_budget?: string; current_fund?: string } = {};
+  try {
+    if (driver.bio) {
+      const parsed = JSON.parse(driver.bio);
+      if (parsed && typeof parsed === "object") story = parsed;
+    }
+  } catch {
+    // 旧フォーマット（文字列）
+    story = { why: driver.bio ?? "" };
+  }
+
+  // 参戦費用の不足額計算
+  const totalBudget = story.total_budget ? parseInt(story.total_budget) : null;
+  const currentFund = story.current_fund ? parseInt(story.current_fund) : null;
+  const shortage = totalBudget && currentFund != null ? totalBudget - currentFund : null;
+
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <ScrollView style={styles.container} stickyHeaderIndices={[2]}>
@@ -302,6 +319,60 @@ export default function DriverProfilePage() {
         {tab === "プロフィール" && (
           <View style={{ paddingBottom: 40 }}>
 
+            {/* ── 壁・葛藤（最初に見せる） ── */}
+            {story.conflict ? (
+              <View style={styles.section}>
+                <View style={styles.conflictCard}>
+                  <Text style={styles.conflictLabel}>⚡ 今、直面している壁</Text>
+                  <Text style={styles.conflictText}>{story.conflict}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* ── 参戦費用ウィジェット ── */}
+            {totalBudget && (
+              <View style={styles.section}>
+                <SectionTitle>今シーズンの資金状況</SectionTitle>
+                <View style={styles.budgetWidget}>
+                  <View style={styles.budgetRow}>
+                    <Text style={styles.budgetLabel}>今シーズン費用</Text>
+                    <Text style={styles.budgetValue}>{totalBudget.toLocaleString()}万円</Text>
+                  </View>
+                  <View style={styles.budgetRow}>
+                    <Text style={styles.budgetLabel}>現在調達済み</Text>
+                    <Text style={[styles.budgetValue, { color: "#4CAF50" }]}>{(currentFund ?? 0).toLocaleString()}万円</Text>
+                  </View>
+                  {/* プログレスバー */}
+                  <View style={styles.progressBg}>
+                    <View style={[styles.progressFill, {
+                      width: `${Math.min(100, ((currentFund ?? 0) / totalBudget) * 100)}%` as any
+                    }]} />
+                  </View>
+                  {shortage != null && shortage > 0 && (
+                    <Text style={styles.shortageText}>
+                      あと <Text style={styles.shortageNum}>{shortage.toLocaleString()}万円</Text> が不足しています
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* ── なぜレースをするのか ── */}
+            {story.why ? (
+              <View style={styles.section}>
+                <SectionTitle>なぜレースを続けるのか</SectionTitle>
+                <Text style={styles.storyText}>{story.why}</Text>
+              </View>
+            ) : null}
+
+            {/* ── 今シーズンの状況 ── */}
+            {story.now ? (
+              <View style={styles.section}>
+                <SectionTitle>今シーズンの状況</SectionTitle>
+                <Text style={styles.storyText}>{story.now}</Text>
+              </View>
+            ) : null}
+
             {/* 今季レース結果 */}
             {raceResults.length > 0 && (
               <View style={styles.section}>
@@ -440,6 +511,15 @@ export default function DriverProfilePage() {
         {/* ─── 応援メニュー TAB ─── */}
         {tab === "応援メニュー" && (
           <View style={styles.plansSection}>
+
+            {/* 支援で何が変わるか */}
+            {story.fund_usage ? (
+              <View style={styles.fundUsageCard}>
+                <Text style={styles.fundUsageTitle}>🏁 あなたの支援で変わること</Text>
+                <Text style={styles.fundUsageText}>{story.fund_usage}</Text>
+              </View>
+            ) : null}
+
             {individualItems.length > 0 && (
               <>
                 <Text style={styles.planCatLabel}>🙋 個人向け</Text>
@@ -753,6 +833,42 @@ const styles = StyleSheet.create({
   },
   sponsorLogo: { width: 60, height: 24, resizeMode: "contain" },
   sponsorName: { fontSize: 12, fontWeight: "600", color: T.gray2 },
+
+  // 葛藤カード
+  conflictCard: {
+    backgroundColor: "rgba(232,0,45,0.08)", borderRadius: 14,
+    padding: 18, borderLeftWidth: 4, borderLeftColor: T.red,
+  },
+  conflictLabel: { fontSize: 11, fontWeight: "800", color: T.red, letterSpacing: 0.5, marginBottom: 10 },
+  conflictText: { fontSize: 15, color: T.dark, fontWeight: "700", lineHeight: 26 },
+
+  // ストーリーテキスト
+  storyText: { fontSize: 14, color: T.gray2, lineHeight: 28, letterSpacing: 0.2 },
+
+  // 資金ウィジェット
+  budgetWidget: {
+    backgroundColor: T.bg, borderRadius: 14, padding: 18,
+    borderWidth: 1, borderColor: "#E8E8E8", gap: 8,
+  },
+  budgetRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  budgetLabel: { fontSize: 13, color: T.gray3 },
+  budgetValue: { fontSize: 16, fontWeight: "800", color: T.dark },
+  progressBg: {
+    height: 8, backgroundColor: "#E8E8E8", borderRadius: 4,
+    overflow: "hidden", marginTop: 4,
+  },
+  progressFill: {
+    height: "100%", backgroundColor: T.red, borderRadius: 4,
+  },
+  shortageText: { fontSize: 12, color: T.gray3, marginTop: 4, textAlign: "center" },
+  shortageNum: { color: T.red, fontWeight: "800" },
+
+  // 支援で変わること
+  fundUsageCard: {
+    backgroundColor: "#0A0A0A", borderRadius: 14, padding: 18, marginBottom: 20,
+  },
+  fundUsageTitle: { fontSize: 13, fontWeight: "800", color: "#FFB800", marginBottom: 10 },
+  fundUsageText: { fontSize: 13, color: "#AAAAAA", lineHeight: 24 },
 
   // Plans
   plansSection: { padding: 16, paddingBottom: 80 },

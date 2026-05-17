@@ -6,8 +6,12 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-import { Colors } from "../../constants/colors";
 import { RacingCategory } from "../../lib/types";
+
+const T = {
+  red: "#E8002D", dark: "#0A0A0A", dark2: "#111", dark3: "#1A1A1A",
+  gray1: "#222", gray3: "#888", gray5: "#2A2A2A", white: "#FFF",
+};
 
 const CATEGORIES: { value: RacingCategory; label: string }[] = [
   { value: "kart", label: "カート" },
@@ -22,24 +26,36 @@ export default function SetupScreen() {
   const [saving, setSaving] = useState(false);
   const [driverId, setDriverId] = useState<string | null>(null);
 
+  // 基本
   const [catchphrase, setCatchphrase] = useState("");
-  const [bio, setBio] = useState("");
   const [hometown, setHometown] = useState("");
   const [age, setAge] = useState("");
   const [category, setCategory] = useState<RacingCategory>("f4");
   const [seriesName, setSeriesName] = useState("");
   const [carNumber, setCarNumber] = useState("");
   const [teamName, setTeamName] = useState("");
-  const [raceHistory, setRaceHistory] = useState("");
-  const [goal, setGoal] = useState("");
   const [snsX, setSnsX] = useState("");
   const [snsInstagram, setSnsInstagram] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
 
-  useEffect(() => {
-    if (user) loadDriver();
-  }, [user]);
+  // 物語型ストーリー（3分割）
+  const [storyConflict, setStoryConflict] = useState("");   // 葛藤：今直面している壁
+  const [storyWhy, setStoryWhy] = useState("");             // 原点：なぜレースを続けるのか
+  const [storyNow, setStoryNow] = useState("");             // 今：今シーズンの状況
+
+  // 目標・戦績
+  const [goal, setGoal] = useState("");
+  const [raceHistory, setRaceHistory] = useState("");
+
+  // 支援の使い道
+  const [fundUsage, setFundUsage] = useState("");           // 支援で何が変わるか
+
+  // 参戦費用（数字）
+  const [totalBudget, setTotalBudget] = useState("");       // 今シーズン総費用（万円）
+  const [currentFund, setCurrentFund] = useState("");       // 現在集まっている額（万円）
+
+  useEffect(() => { if (user) loadDriver(); }, [user]);
 
   async function loadDriver() {
     setLoading(true);
@@ -52,19 +68,35 @@ export default function SetupScreen() {
     if (data) {
       setDriverId(data.id);
       setCatchphrase(data.catchphrase ?? "");
-      setBio(data.bio ?? "");
       setHometown(data.hometown ?? "");
       setAge(data.age?.toString() ?? "");
       setCategory(data.category ?? "f4");
       setSeriesName(data.series_name ?? "");
       setCarNumber(data.car_number ?? "");
       setTeamName(data.team_name ?? "");
-      setRaceHistory(data.race_history ?? "");
-      setGoal(data.goal ?? "");
       setSnsX(data.sns_x ?? "");
       setSnsInstagram(data.sns_instagram ?? "");
       setAvatarUrl(data.avatar_url ?? null);
       setIsPublished(data.is_published ?? false);
+      setGoal(data.goal ?? "");
+      setRaceHistory(data.race_history ?? "");
+      // 物語フィールド（bioをパース or そのまま）
+      try {
+        const parsed = data.bio ? JSON.parse(data.bio) : null;
+        if (parsed && parsed.conflict) {
+          setStoryConflict(parsed.conflict ?? "");
+          setStoryWhy(parsed.why ?? "");
+          setStoryNow(parsed.now ?? "");
+          setFundUsage(parsed.fund_usage ?? "");
+          setTotalBudget(parsed.total_budget ?? "");
+          setCurrentFund(parsed.current_fund ?? "");
+        } else {
+          // 旧フォーマット（文字列）はそのままwhyに入れる
+          setStoryWhy(data.bio ?? "");
+        }
+      } catch {
+        setStoryWhy(data.bio ?? "");
+      }
     }
     setLoading(false);
   }
@@ -72,13 +104,10 @@ export default function SetupScreen() {
   async function pickAvatar() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      allowsEditing: true, aspect: [1, 1], quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      await uploadAvatar(uri);
+      await uploadAvatar(result.assets[0].uri);
     }
   }
 
@@ -87,11 +116,7 @@ export default function SetupScreen() {
     const fileName = `${user!.id}/avatar.${ext}`;
     const response = await fetch(uri);
     const blob = await response.blob();
-
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(fileName, blob, { upsert: true });
-
+    const { error } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true });
     if (!error) {
       const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
       setAvatarUrl(data.publicUrl);
@@ -100,9 +125,19 @@ export default function SetupScreen() {
 
   async function handleSave(publish = false) {
     setSaving(true);
+    // bioをJSONで保存
+    const bioJson = JSON.stringify({
+      conflict: storyConflict,
+      why: storyWhy,
+      now: storyNow,
+      fund_usage: fundUsage,
+      total_budget: totalBudget,
+      current_fund: currentFund,
+    });
+
     const payload = {
       profile_id: user!.id,
-      catchphrase, bio, hometown,
+      catchphrase, bio: bioJson, hometown,
       age: age ? parseInt(age) : null,
       category, series_name: seriesName, car_number: carNumber,
       team_name: teamName, race_history: raceHistory, goal,
@@ -119,25 +154,21 @@ export default function SetupScreen() {
       if (data) setDriverId(data.id);
       error = e;
     }
-
     setSaving(false);
-    if (error) {
-      Alert.alert("エラー", error.message);
-    } else {
+    if (error) Alert.alert("エラー", error.message);
+    else {
       if (publish) setIsPublished(true);
       Alert.alert("保存しました", publish ? "プロフィールを公開しました！" : "下書きを保存しました");
     }
   }
 
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator color={T.red} /></View>;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>プロフィール設定</Text>
+      <Text style={styles.pageTitle}>プロフィール設定</Text>
 
-      {/* アバター */}
+      {/* ── アバター ── */}
       <TouchableOpacity style={styles.avatarSection} onPress={pickAvatar}>
         {avatarUrl ? (
           <Image source={{ uri: avatarUrl }} style={styles.avatar} />
@@ -146,26 +177,21 @@ export default function SetupScreen() {
             <Text style={styles.avatarPlaceholderText}>写真を追加</Text>
           </View>
         )}
-        <Text style={styles.avatarChangeText}>タップして変更</Text>
+        <Text style={styles.avatarHint}>タップして変更</Text>
       </TouchableOpacity>
 
-      <Field label="キャッチコピー" value={catchphrase} onChange={setCatchphrase}
-        placeholder="例: 7歳から夢を追い続けるドライバー" />
+      {/* ── 基本情報 ── */}
+      <SectionHeader label="基本情報" />
+      <Field label="キャッチフレーズ" value={catchphrase} onChange={setCatchphrase}
+        placeholder="一言で自分を表すフレーズ" />
 
-      <Field label="自己紹介・ストーリー *" value={bio} onChange={setBio}
-        placeholder="なぜレースをやっているか、どんな思いで活動しているか..." multiline />
-
-      <Text style={styles.label}>カテゴリ *</Text>
+      <Text style={styles.label}>カテゴリ</Text>
       <View style={styles.categoryRow}>
         {CATEGORIES.map((c) => (
-          <TouchableOpacity
-            key={c.value}
+          <TouchableOpacity key={c.value}
             style={[styles.catBtn, category === c.value && styles.catBtnActive]}
-            onPress={() => setCategory(c.value)}
-          >
-            <Text style={[styles.catBtnText, category === c.value && styles.catBtnTextActive]}>
-              {c.label}
-            </Text>
+            onPress={() => setCategory(c.value)}>
+            <Text style={[styles.catBtnText, category === c.value && styles.catBtnTextActive]}>{c.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -175,7 +201,7 @@ export default function SetupScreen() {
           <Field label="シリーズ名" value={seriesName} onChange={setSeriesName} placeholder="全日本F4選手権" />
         </View>
         <View style={{ width: 80 }}>
-          <Field label="カーナンバー" value={carNumber} onChange={setCarNumber} placeholder="#23" />
+          <Field label="カーナンバー" value={carNumber} onChange={setCarNumber} placeholder="#7" />
         </View>
       </View>
 
@@ -190,56 +216,138 @@ export default function SetupScreen() {
         </View>
       </View>
 
+      {/* ── ストーリー（物語型） ── */}
+      <SectionHeader label="ストーリー" note="支援者が「応援したい」と感じるのはスペックではなくあなたの物語です" />
+
+      <View style={styles.storyCard}>
+        <Text style={styles.storyCardIcon}>⚡</Text>
+        <Text style={styles.storyCardTitle}>今、あなたが直面している壁</Text>
+        <Text style={styles.storyCardHint}>
+          具体的な数字や状況を書くほど刺さります{"\n"}
+          例：「今シーズンの参戦費用300万円のうち150万円が未調達」
+        </Text>
+        <TextInput
+          style={[styles.input, styles.inputMulti]}
+          value={storyConflict}
+          onChangeText={setStoryConflict}
+          placeholder="今直面している課題・壁を正直に書いてください"
+          placeholderTextColor={T.gray3}
+          multiline numberOfLines={4}
+        />
+      </View>
+
+      <View style={styles.storyCard}>
+        <Text style={styles.storyCardIcon}>🔥</Text>
+        <Text style={styles.storyCardTitle}>なぜレースを続けるのか</Text>
+        <Text style={styles.storyCardHint}>
+          原体験・きっかけ・諦めなかった理由{"\n"}
+          例：「7歳のとき父に連れて行かれたカート場で…」
+        </Text>
+        <TextInput
+          style={[styles.input, styles.inputMulti]}
+          value={storyWhy}
+          onChangeText={setStoryWhy}
+          placeholder="レースを始めたきっかけ、続ける理由を教えてください"
+          placeholderTextColor={T.gray3}
+          multiline numberOfLines={5}
+        />
+      </View>
+
+      <View style={styles.storyCard}>
+        <Text style={styles.storyCardIcon}>📍</Text>
+        <Text style={styles.storyCardTitle}>今シーズンの状況</Text>
+        <Text style={styles.storyCardHint}>
+          現在地と次のステップ{"\n"}
+          例：「第3戦終了時点でランキング5位。表彰台まであと一歩」
+        </Text>
+        <TextInput
+          style={[styles.input, styles.inputMulti]}
+          value={storyNow}
+          onChangeText={setStoryNow}
+          placeholder="今シーズンの現在地・手ごたえを書いてください"
+          placeholderTextColor={T.gray3}
+          multiline numberOfLines={4}
+        />
+      </View>
+
+      {/* ── 支援の使い道 ── */}
+      <SectionHeader label="支援で何が変わるか" note="応援ボタンを押す直前に読まれる最重要セクション" />
+
+      <View style={styles.budgetRow}>
+        <View style={{ flex: 1 }}>
+          <Field label="今シーズン総費用（万円）" value={totalBudget} onChange={setTotalBudget}
+            placeholder="300" keyboardType="numeric" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Field label="現在集まっている額（万円）" value={currentFund} onChange={setCurrentFund}
+            placeholder="87" keyboardType="numeric" />
+        </View>
+      </View>
+
+      <View style={{ marginTop: 12 }}>
+        <Text style={styles.label}>支援の具体的な使い道</Text>
+        <Text style={styles.fieldHint}>月1,000円が10人集まったら何ができる？具体的に書くほど響きます</Text>
+        <TextInput
+          style={[styles.input, styles.inputMulti]}
+          value={fundUsage}
+          onChangeText={setFundUsage}
+          placeholder={"例：\n・月1,000円×10人 → タイヤ代1セット分、練習走行1回増やせる\n・月5,000円×5人 → 遠征1回分の交通費をまかなえる"}
+          placeholderTextColor={T.gray3}
+          multiline numberOfLines={5}
+        />
+      </View>
+
+      {/* ── 実績・目標 ── */}
+      <SectionHeader label="実績・目標" />
       <Field label="主な戦績" value={raceHistory} onChange={setRaceHistory}
         placeholder="2024年 全日本F4第3戦 3位..." multiline />
-
       <Field label="今シーズンの目標" value={goal} onChange={setGoal}
-        placeholder="シリーズランキングTOP5入り" />
+        placeholder="シリーズランキングTOP5入り" multiline />
 
-      <Text style={styles.sectionTitle}>SNS</Text>
-      <Field label="X (Twitter) ID" value={snsX} onChange={setSnsX} placeholder="@username" />
-      <Field label="Instagram ID" value={snsInstagram} onChange={setSnsInstagram} placeholder="@username" />
+      {/* ── SNS ── */}
+      <SectionHeader label="SNS" />
+      <Field label="X (Twitter)" value={snsX} onChange={setSnsX} placeholder="@username" />
+      <Field label="Instagram" value={snsInstagram} onChange={setSnsInstagram} placeholder="@username" />
 
+      {/* ── ボタン ── */}
       <View style={styles.btns}>
-        <TouchableOpacity
-          style={[styles.draftBtn, saving && styles.btnDisabled]}
-          onPress={() => handleSave(false)}
-          disabled={saving}
-        >
+        <TouchableOpacity style={[styles.draftBtn, saving && styles.btnDisabled]}
+          onPress={() => handleSave(false)} disabled={saving}>
           <Text style={styles.draftBtnText}>{saving ? "保存中..." : "下書き保存"}</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.publishBtn, saving && styles.btnDisabled]}
-          onPress={() => handleSave(true)}
-          disabled={saving}
-        >
-          <Text style={styles.publishBtnText}>
-            {isPublished ? "更新して公開" : "公開する"}
-          </Text>
+        <TouchableOpacity style={[styles.publishBtn, saving && styles.btnDisabled]}
+          onPress={() => handleSave(true)} disabled={saving}>
+          <Text style={styles.publishBtnText}>{isPublished ? "更新して公開" : "公開する"}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
 
-function Field({
-  label, value, onChange, placeholder, multiline, keyboardType,
-}: {
+function SectionHeader({ label, note }: { label: string; note?: string }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionAccent} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.sectionTitle}>{label}</Text>
+        {note ? <Text style={styles.sectionNote}>{note}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, multiline, keyboardType }: {
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; multiline?: boolean; keyboardType?: any;
 }) {
   return (
-    <View style={{ marginTop: 16 }}>
+    <View style={{ marginTop: 14 }}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         style={[styles.input, multiline && styles.inputMulti]}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.gray300}
-        multiline={multiline}
-        numberOfLines={multiline ? 4 : 1}
+        value={value} onChangeText={onChange}
+        placeholder={placeholder} placeholderTextColor={T.gray3}
+        multiline={multiline} numberOfLines={multiline ? 4 : 1}
         keyboardType={keyboardType}
       />
     </View>
@@ -247,46 +355,72 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 20, paddingBottom: 60 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 24, fontWeight: "800", color: Colors.black, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: Colors.black, marginTop: 28, marginBottom: 4 },
-  label: { fontSize: 13, fontWeight: "600", color: Colors.gray700, marginBottom: 4 },
-  input: {
-    borderWidth: 1, borderColor: Colors.border, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15,
-    color: Colors.black, backgroundColor: Colors.white,
-  },
-  inputMulti: { minHeight: 100, textAlignVertical: "top" },
-  avatarSection: { alignItems: "center", marginBottom: 24 },
+  container: { flex: 1, backgroundColor: T.dark },
+  content: { padding: 20, paddingBottom: 80 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.dark },
+  pageTitle: { fontSize: 24, fontWeight: "800", color: T.white, marginBottom: 24 },
+
+  // Avatar
+  avatarSection: { alignItems: "center", marginBottom: 28 },
   avatar: { width: 100, height: 100, borderRadius: 50 },
   avatarPlaceholder: {
     width: 100, height: 100, borderRadius: 50,
-    backgroundColor: Colors.gray100, justifyContent: "center", alignItems: "center",
-    borderWidth: 2, borderColor: Colors.border, borderStyle: "dashed",
+    backgroundColor: T.gray1, justifyContent: "center", alignItems: "center",
+    borderWidth: 2, borderColor: T.gray5, borderStyle: "dashed",
   },
-  avatarPlaceholderText: { color: Colors.gray500, fontSize: 12 },
-  avatarChangeText: { color: Colors.primary, fontSize: 13, marginTop: 8 },
-  categoryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  avatarPlaceholderText: { color: T.gray3, fontSize: 12 },
+  avatarHint: { color: T.red, fontSize: 12, marginTop: 8 },
+
+  // Section
+  sectionHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 32, marginBottom: 4 },
+  sectionAccent: { width: 3, height: 20, backgroundColor: T.red, borderRadius: 2, marginTop: 2 },
+  sectionTitle: { fontSize: 15, fontWeight: "800", color: T.white },
+  sectionNote: { fontSize: 11, color: T.gray3, marginTop: 3, lineHeight: 16 },
+
+  // Field
+  label: { fontSize: 12, fontWeight: "600", color: T.gray3, marginBottom: 6 },
+  fieldHint: { fontSize: 11, color: T.gray3, marginBottom: 6, lineHeight: 16 },
+  input: {
+    borderWidth: 1, borderColor: T.gray5, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14,
+    color: T.white, backgroundColor: T.dark3,
+  },
+  inputMulti: { minHeight: 100, textAlignVertical: "top" },
+
+  // Category
+  categoryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
   catBtn: {
-    borderWidth: 1, borderColor: Colors.border, borderRadius: 8,
-    paddingVertical: 8, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
+    paddingVertical: 8, paddingHorizontal: 14, backgroundColor: T.dark3,
   },
-  catBtnActive: { borderColor: Colors.primary, backgroundColor: "#FFF0F3" },
-  catBtnText: { fontSize: 14, color: Colors.gray500 },
-  catBtnTextActive: { color: Colors.primary, fontWeight: "600" },
+  catBtnActive: { borderColor: T.red, backgroundColor: "rgba(232,0,45,0.12)" },
+  catBtnText: { fontSize: 13, color: T.gray3 },
+  catBtnTextActive: { color: T.red, fontWeight: "700" },
+
   row: { flexDirection: "row", gap: 12 },
-  btns: { flexDirection: "row", gap: 12, marginTop: 32 },
+  budgetRow: { flexDirection: "row", gap: 12, marginTop: 4 },
+
+  // Story cards
+  storyCard: {
+    backgroundColor: T.dark3, borderRadius: 14, padding: 16,
+    marginTop: 14, borderWidth: 1, borderColor: T.gray5,
+  },
+  storyCardIcon: { fontSize: 20, marginBottom: 6 },
+  storyCardTitle: { fontSize: 14, fontWeight: "800", color: T.white, marginBottom: 4 },
+  storyCardHint: { fontSize: 11, color: T.gray3, lineHeight: 17, marginBottom: 12 },
+
+  // Buttons
+  btns: { flexDirection: "row", gap: 12, marginTop: 36 },
   draftBtn: {
-    flex: 1, borderWidth: 1, borderColor: Colors.border,
+    flex: 1, borderWidth: 1, borderColor: T.gray5,
     borderRadius: 12, paddingVertical: 15, alignItems: "center",
+    backgroundColor: T.dark3,
   },
-  draftBtnText: { color: Colors.gray700, fontSize: 15, fontWeight: "600" },
+  draftBtnText: { color: T.gray3, fontSize: 14, fontWeight: "600" },
   publishBtn: {
-    flex: 1, backgroundColor: Colors.primary,
+    flex: 1, backgroundColor: T.red,
     borderRadius: 12, paddingVertical: 15, alignItems: "center",
   },
-  publishBtnText: { color: Colors.white, fontSize: 15, fontWeight: "700" },
-  btnDisabled: { opacity: 0.6 },
+  publishBtnText: { color: T.white, fontSize: 14, fontWeight: "800" },
+  btnDisabled: { opacity: 0.5 },
 });

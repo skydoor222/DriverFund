@@ -145,10 +145,16 @@ export default function DiscoverScreen() {
               >
                 {/* カバー画像エリア */}
                 {(item as any).cover_url ? (
-                  <Image source={{ uri: (item as any).cover_url }} style={styles.cardCover} />
+                  <Image
+                    source={{ uri: (item as any).cover_url }}
+                    style={styles.cardCover}
+                    defaultSource={{ uri: "https://images.unsplash.com/photo-1541348263662-e068b7b52ddc?w=900&q=60" }}
+                  />
                 ) : (
-                  <View style={[styles.cardCover, styles.cardCoverFallback]}>
-                    <View style={[styles.cardCoverAccent, { backgroundColor: catColor }]} />
+                  <View style={[styles.cardCover, styles.cardCoverFallback, { borderLeftWidth: 4, borderLeftColor: catColor }]}>
+                    <Text style={[styles.cardCoverFallbackText, { color: catColor }]}>
+                      {categoryLabel[cat]}
+                    </Text>
                   </View>
                 )}
 
@@ -253,13 +259,14 @@ const styles = StyleSheet.create({
 
   // Category chips
   catScroll: { flexGrow: 0, marginTop: 12 },
-  catScrollContent: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
+  catScrollContent: { paddingHorizontal: 16, gap: 8, paddingBottom: 12, flexDirection: "row", alignItems: "center" },
   catChip: {
     borderWidth: 1, borderColor: T.gray5, borderRadius: 20,
-    paddingVertical: 5, paddingHorizontal: 14, backgroundColor: T.dark3,
+    paddingVertical: 6, paddingHorizontal: 16, backgroundColor: T.dark3,
+    flexShrink: 0,
   },
   catChipActive: { backgroundColor: T.red, borderColor: T.red },
-  catChipText: { fontSize: 12, fontWeight: "600", color: T.gray3 },
+  catChipText: { fontSize: 12, fontWeight: "600", color: T.gray3, whiteSpace: "nowrap" } as any,
   catChipTextActive: { color: T.white },
 
   // List
@@ -273,8 +280,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: T.gray5,
   },
   cardCover: { width: "100%", height: 120, resizeMode: "cover" },
-  cardCoverFallback: { backgroundColor: T.dark3, justifyContent: "flex-end" },
+  cardCoverFallback: { backgroundColor: T.dark3, justifyContent: "center", alignItems: "center" },
   cardCoverAccent: { height: 3, width: "100%" },
+  cardCoverFallbackText: { fontSize: 11, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase", opacity: 0.5 },
 
   catBadge: {
     position: "absolute", top: 10, left: 10,
