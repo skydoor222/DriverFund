@@ -345,8 +345,9 @@ export default function DriverProfilePage() {
                   {/* プログレスバー */}
                   <View style={styles.progressBg}>
                     <View style={[styles.progressFill, {
-                      width: `${Math.min(100, ((currentFund ?? 0) / totalBudget) * 100)}%` as any
+                      flex: Math.min(100, Math.round(((currentFund ?? 0) / totalBudget) * 100)),
                     }]} />
+                    <View style={{ flex: Math.max(0, 100 - Math.min(100, Math.round(((currentFund ?? 0) / totalBudget) * 100))), backgroundColor: "transparent" }} />
                   </View>
                   {shortage != null && shortage > 0 && (
                     <Text style={styles.shortageText}>
@@ -855,10 +856,10 @@ const styles = StyleSheet.create({
   budgetValue: { fontSize: 16, fontWeight: "800", color: T.dark },
   progressBg: {
     height: 8, backgroundColor: "#E8E8E8", borderRadius: 4,
-    overflow: "hidden", marginTop: 4,
+    overflow: "hidden", marginTop: 4, flexDirection: "row",
   },
   progressFill: {
-    height: "100%", backgroundColor: T.red, borderRadius: 4,
+    height: 8, backgroundColor: T.red,
   },
   shortageText: { fontSize: 12, color: T.gray3, marginTop: 4, textAlign: "center" },
   shortageNum: { color: T.red, fontWeight: "800" },

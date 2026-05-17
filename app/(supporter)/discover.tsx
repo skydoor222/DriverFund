@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   catChipActive: { backgroundColor: T.red, borderColor: T.red },
-  catChipText: { fontSize: 12, fontWeight: "600", color: T.gray3, whiteSpace: "nowrap" } as any,
+  catChipText: { fontSize: 12, fontWeight: "600", color: T.gray3 },
   catChipTextActive: { color: T.white },
 
   // List
