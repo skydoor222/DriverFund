@@ -1,9 +1,8 @@
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useFonts } from "expo-font";
-import { Ionicons } from "@expo/vector-icons";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 
@@ -73,16 +72,13 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    ...Ionicons.font,
-  });
-
-  if (!fontsLoaded) return null;
+  // useFonts を使わない: WebではCSSで自動ロード、ネイティブではバンドル内フォントを使用
+  // useFonts がWebで永遠にresolveされないバグを回避
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0D0D0D" }}>
       <AuthProvider>
-        <StatusBar style="light" />
+        <StatusBar style="light" backgroundColor="#0D0D0D" />
         <RootNavigator />
       </AuthProvider>
     </GestureHandlerRootView>

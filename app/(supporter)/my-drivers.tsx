@@ -1,285 +1,238 @@
 import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, ActivityIndicator, Dimensions,
+  Image, ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-// dark theme colors
-const Colors = {
-  primary: "#E8002D",
-  black: "#0A0A0A",
-  white: "#FFFFFF",
-  background: "#0A0A0A",
+import { Driver } from "../../lib/types";
+
+const T = {
+  bg: "#0D0D0D",
   surface: "#161616",
-  border: "#222222",
-  gray100: "#1A1A1A",
-  gray300: "#555555",
-  gray500: "#888888",
-  gray700: "#AAAAAA",
+  border: "#1E1E1E",
+  text: "#F0F0F0",
+  sub: "#777777",
+  muted: "#444444",
+  red: "#E8002D",
+  white: "#FFFFFF",
 };
-import { Driver, ReturnItem } from "../../lib/types";
 
-const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_W = (SCREEN_W - 48) / 2;
-
-interface DriverCard {
-  driver: Driver;
-  returnItems: ReturnItem[];
-  totalMonthly: number;
-  totalOneTime: number;
+interface Post {
+  id: string;
+  driverName: string;
+  driverAvatar?: string;
+  driverCategory: string;
+  date: string;
+  title: string;
+  body: string;
+  likeCount: number;
+  commentCount: number;
 }
+
+const SAMPLE_POSTS: Post[] = [
+  {
+    id: "p1",
+    driverName: "山田 遼", driverAvatar: undefined, driverCategory: "SF",
+    date: "2時間前",
+    title: "予選P2！フロントロウ獲得",
+    body: "今日は鈴鹿で予選があった。セクター2でミスしたけど、全体タイムでP2を獲れた。チームのみんなのおかげです。決勝も全力で戦います！",
+    likeCount: 48, commentCount: 12,
+  },
+  {
+    id: "p2",
+    driverName: "伊藤 遥", driverAvatar: undefined, driverCategory: "F4",
+    date: "昨日",
+    title: "テスト走行 — ようやく方向性が見えてきた",
+    body: "先週のレースで課題だったオーバーステアに取り組んでいる。エンジニアと何度もデータを見て、着実に前に進んでいる感覚がある。",
+    likeCount: 31, commentCount: 7,
+  },
+  {
+    id: "p3",
+    driverName: "佐藤 蓮", driverAvatar: undefined, driverCategory: "カート",
+    date: "3日前",
+    title: "ファンイベントで子どもたちと",
+    body: "ヘルメットを被って喜んでいた子どもたちの笑顔が忘れられない。こういう日があるからレースを続けられると改めて思った。",
+    likeCount: 94, commentCount: 23,
+  },
+  {
+    id: "p4",
+    driverName: "山田 遼", driverAvatar: undefined, driverCategory: "SF",
+    date: "4日前",
+    title: "資金が足りない現実と向き合う",
+    body: "今シーズン残り3戦。タイヤ代だけで100万円以上かかる。スポンサー探しも続けているけど、厳しい状況は変わらない。それでも走り続ける。",
+    likeCount: 127, commentCount: 41,
+  },
+];
 
 export default function MyDriversScreen() {
   const { user } = useAuth();
   const router = useRouter();
-  const [cards, setCards] = useState<DriverCard[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [liked, setLiked] = useState<Set<string>>(new Set());
 
   useEffect(() => { if (user) load(); }, [user]);
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
+    // 応援中ドライバー確認（将来的にここでフィルタ）
+    await supabase
       .from("sponsorships")
-      .select(`
-        *,
-        return_item:return_items(*),
-        driver:drivers(*)
-      `)
+      .select("driver_id")
       .eq("supporter_id", user!.id)
-      .eq("status", "active")
-      .order("started_at", { ascending: false });
+      .eq("status", "active");
 
-    // Group by driver
-    const driverMap = new Map<string, DriverCard>();
-    for (const s of (data ?? [])) {
-      const driver = s.driver as Driver;
-      if (!driver) continue;
-      if (!driverMap.has(driver.id)) {
-        driverMap.set(driver.id, {
-          driver,
-          returnItems: [],
-          totalMonthly: 0,
-          totalOneTime: 0,
-        });
-      }
-      const card = driverMap.get(driver.id)!;
-      if (s.return_item) {
-        card.returnItems.push(s.return_item as ReturnItem);
-        if (s.return_item.billing_type === "monthly") {
-          card.totalMonthly += s.amount;
-        } else {
-          card.totalOneTime += s.amount;
-        }
-      }
-    }
-
-    setCards(Array.from(driverMap.values()));
+    setPosts(SAMPLE_POSTS);
     setLoading(false);
   }
 
-  const grandTotal = cards.reduce((sum, c) => sum + c.totalMonthly, 0);
+  function toggleLike(id: string) {
+    setLiked(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   if (loading) return (
-    <View style={styles.center}>
-      <ActivityIndicator color={Colors.primary} />
-    </View>
+    <View style={s.center}><ActivityIndicator color={T.red} size="large" /></View>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.pageTitle}>マイ選手</Text>
-
-      {cards.length > 0 && (
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>月額応援合計</Text>
-          <Text style={styles.summaryAmount}>¥{grandTotal.toLocaleString()}<Text style={styles.summaryUnit}> / 月</Text></Text>
-          <Text style={styles.summaryCount}>{cards.length}名の選手を応援中</Text>
-        </View>
-      )}
+    <View style={s.root}>
+      <View style={s.header}>
+        <Text style={s.headerTitle}>フィード</Text>
+      </View>
 
       <FlatList
-        data={cards}
-        keyExtractor={(item) => item.driver.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.list}
+        data={posts}
+        keyExtractor={item => item.id}
+        contentContainerStyle={s.list}
+        ItemSeparatorComponent={() => <View style={s.sep} />}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>🏁</Text>
-            <Text style={styles.emptyTitle}>まだ応援中の選手がいません</Text>
-            <Text style={styles.emptySubtext}>気になるドライバーを見つけて{"\n"}応援をはじめよう</Text>
-            <TouchableOpacity
-              style={styles.discoverBtn}
-              onPress={() => router.push("/(supporter)/discover")}
-            >
-              <Text style={styles.discoverBtnText}>ドライバーを探す</Text>
+          <View style={s.emptyWrap}>
+            <Text style={s.emptyTitle}>まだ応援中の選手がいません</Text>
+            <Text style={s.emptySub}>気になるドライバーを見つけて応援しよう</Text>
+            <TouchableOpacity style={s.emptyBtn} onPress={() => router.push("/(supporter)/discover")}>
+              <Text style={s.emptyBtnTxt}>ドライバーを探す</Text>
             </TouchableOpacity>
           </View>
         }
-        renderItem={({ item }) => <DriverCard card={item} onPress={() => router.push(`/driver/${item.driver.id}`)} />}
+        renderItem={({ item }) => {
+          const isLiked = liked.has(item.id);
+          return (
+            <View style={s.post}>
+              {/* 左カラム：アバター */}
+              <View style={s.postLeft}>
+                <View style={s.avatar}>
+                  {item.driverAvatar ? (
+                    <Image source={{ uri: item.driverAvatar }} style={s.avatarImg} resizeMode="cover" />
+                  ) : (
+                    <View style={[s.avatarImg, s.avatarFallback]}>
+                      <Text style={s.avatarInitial}>{item.driverName[0]}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={s.threadLine} />
+              </View>
+
+              {/* 右カラム：コンテンツ */}
+              <View style={s.postRight}>
+                {/* ヘッダー行 */}
+                <View style={s.postHead}>
+                  <Text style={s.driverName}>{item.driverName}</Text>
+                  <Text style={s.catBadge}>{item.driverCategory}</Text>
+                  <Text style={s.dot}>·</Text>
+                  <Text style={s.date}>{item.date}</Text>
+                </View>
+
+                {/* 本文 */}
+                <Text style={s.title}>{item.title}</Text>
+                <Text style={s.body}>{item.body}</Text>
+
+                {/* アクションバー */}
+                <View style={s.actions}>
+                  <TouchableOpacity style={s.actionBtn} onPress={() => toggleLike(item.id)}>
+                    <Text style={[s.actionIco, isLiked && { color: T.red }]}>
+                      {isLiked ? "♥" : "♡"}
+                    </Text>
+                    <Text style={[s.actionTxt, isLiked && { color: T.red }]}>
+                      {item.likeCount + (isLiked ? 1 : 0)}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.actionBtn}>
+                    <Text style={s.actionIco}>○</Text>
+                    <Text style={s.actionTxt}>{item.commentCount}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.actionBtn}>
+                    <Text style={s.actionIco}>↑</Text>
+                    <Text style={s.actionTxt}>シェア</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          );
+        }}
       />
     </View>
   );
 }
 
-function DriverCard({ card, onPress }: { card: DriverCard; onPress: () => void }) {
-  const { driver, returnItems, totalMonthly } = card;
-  const coverUri = driver.cover_url ?? driver.avatar_url;
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: T.bg },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
-  const categoryLabel: Record<string, string> = {
-    kart: "カート", f4: "F4", sf: "スーパーフォーミュラ", other: "その他"
-  };
-
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      {/* Cover image with gradient */}
-      <View style={styles.coverContainer}>
-        {coverUri ? (
-          <Image source={{ uri: coverUri }} style={styles.coverImage} />
-        ) : (
-          <View style={[styles.coverImage, styles.coverPlaceholder]} />
-        )}
-        {/* Gradient overlay via plain View */}
-        <View style={styles.coverGradient} />
-        {/* Category badge */}
-        <View style={styles.categoryBadge}>
-          <Text style={styles.categoryText}>{categoryLabel[driver.category] ?? driver.category}</Text>
-        </View>
-        {/* Avatar */}
-        <View style={styles.avatarWrapper}>
-          {driver.avatar_url ? (
-            <Image source={{ uri: driver.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarInitial}>{driver.full_name[0]}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Card body */}
-      <View style={styles.cardBody}>
-        <Text style={styles.driverName} numberOfLines={1}>{driver.full_name}</Text>
-        {driver.team_name && (
-          <Text style={styles.teamName} numberOfLines={1}>{driver.team_name}</Text>
-        )}
-
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          {driver.series_rank && (
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>P{driver.series_rank}</Text>
-              <Text style={styles.statLabel}>順位</Text>
-            </View>
-          )}
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{returnItems.length}</Text>
-            <Text style={styles.statLabel}>メニュー</Text>
-          </View>
-          {totalMonthly > 0 && (
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: Colors.primary }]}>¥{(totalMonthly / 1000).toFixed(0)}k</Text>
-              <Text style={styles.statLabel}>月額</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Return item chips */}
-        <View style={styles.chips}>
-          {returnItems.slice(0, 2).map((ri) => (
-            <View key={ri.id} style={styles.chip}>
-              <Text style={styles.chipText} numberOfLines={1}>{ri.title}</Text>
-            </View>
-          ))}
-          {returnItems.length > 2 && (
-            <View style={styles.chip}>
-              <Text style={styles.chipText}>+{returnItems.length - 2}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, paddingTop: 56 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  pageTitle: { fontSize: 24, fontWeight: "800", color: Colors.black, paddingHorizontal: 20, marginBottom: 16 },
-
-  summaryCard: {
-    marginHorizontal: 20, backgroundColor: Colors.primary, borderRadius: 16,
-    padding: 20, marginBottom: 20,
+  header: {
+    paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: T.border,
   },
-  summaryLabel: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontWeight: "500" },
-  summaryAmount: { color: Colors.white, fontSize: 30, fontWeight: "800", marginTop: 2 },
-  summaryUnit: { fontSize: 15, fontWeight: "500" },
-  summaryCount: { color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 4 },
+  headerTitle: { fontSize: 20, fontWeight: "800", color: T.text },
 
-  list: { paddingHorizontal: 16, paddingBottom: 32 },
-  row: { gap: 16, marginBottom: 16 },
+  list: { paddingBottom: 100 },
+  sep: { height: 1, backgroundColor: T.border },
 
-  card: {
-    width: CARD_W,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+  // Twitter/Reddit style post
+  post: {
+    flexDirection: "row",
+    paddingTop: 14, paddingHorizontal: 14, paddingBottom: 4,
   },
-  coverContainer: { height: 130, position: "relative" },
-  coverImage: { width: "100%", height: "100%", resizeMode: "cover" },
-  coverPlaceholder: { backgroundColor: "#C8D6E5" },
-  coverGradient: {
-    position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.35)",
-  },
-  categoryBadge: {
-    position: "absolute", top: 8, left: 8,
-    backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 6,
-    paddingVertical: 2, paddingHorizontal: 8,
-  },
-  categoryText: { color: Colors.white, fontSize: 10, fontWeight: "700" },
-  avatarWrapper: {
-    position: "absolute", bottom: -18, left: 10,
-    borderRadius: 22, borderWidth: 2.5, borderColor: Colors.white,
-    width: 44, height: 44,
-    overflow: "hidden",
-  },
-  avatar: { width: 44, height: 44, borderRadius: 20 },
-  avatarPlaceholder: {
-    backgroundColor: Colors.primary, justifyContent: "center", alignItems: "center",
-  },
-  avatarInitial: { color: Colors.white, fontSize: 18, fontWeight: "700" },
 
-  cardBody: { paddingTop: 24, paddingHorizontal: 10, paddingBottom: 12 },
-  driverName: { fontSize: 14, fontWeight: "800", color: Colors.black },
-  teamName: { fontSize: 11, color: Colors.gray500, marginTop: 1 },
+  // 左：アバター＋スレッドライン
+  postLeft: { alignItems: "center", marginRight: 12 },
+  avatar: { marginBottom: 6 },
+  avatarImg: { width: 42, height: 42, borderRadius: 21 },
+  avatarFallback: { backgroundColor: "#2A2A2A", alignItems: "center", justifyContent: "center" },
+  avatarInitial: { color: T.text, fontSize: 16, fontWeight: "700" },
+  threadLine: { flex: 1, width: 2, backgroundColor: T.border, minHeight: 16 },
 
-  statsRow: { flexDirection: "row", gap: 10, marginTop: 10, marginBottom: 8 },
-  statItem: { alignItems: "center" },
-  statValue: { fontSize: 13, fontWeight: "800", color: Colors.black },
-  statLabel: { fontSize: 9, color: Colors.gray500, marginTop: 1 },
+  // 右：コンテンツ
+  postRight: { flex: 1, paddingBottom: 12 },
+  postHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" },
+  driverName: { fontSize: 14, fontWeight: "700", color: T.text },
+  catBadge: { fontSize: 11, color: T.sub, backgroundColor: "#1E1E1E", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  dot: { color: T.muted, fontSize: 14 },
+  date: { fontSize: 13, color: T.sub },
 
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  chip: {
-    backgroundColor: Colors.background, borderRadius: 6,
-    paddingVertical: 2, paddingHorizontal: 6,
+  title: { fontSize: 15, fontWeight: "700", color: T.text, lineHeight: 21, marginBottom: 6 },
+  body: { fontSize: 14, color: "#AAAAAA", lineHeight: 22 },
+
+  // アクション
+  actions: {
+    flexDirection: "row", gap: 24, marginTop: 12,
   },
-  chipText: { fontSize: 10, color: Colors.gray700, fontWeight: "500" },
+  actionBtn: { flexDirection: "row", alignItems: "center", gap: 5 },
+  actionIco: { fontSize: 16, color: T.sub },
+  actionTxt: { fontSize: 13, color: T.sub },
 
-  emptyContainer: { alignItems: "center", paddingTop: 80, gap: 12 },
-  emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: 17, fontWeight: "700", color: Colors.black },
-  emptySubtext: { fontSize: 14, color: Colors.gray500, textAlign: "center", lineHeight: 22 },
-  discoverBtn: {
-    backgroundColor: Colors.primary, borderRadius: 14,
-    paddingVertical: 14, paddingHorizontal: 36, marginTop: 8,
+  // Empty
+  emptyWrap: { alignItems: "center", paddingTop: 80, gap: 12, paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 17, fontWeight: "700", color: T.text, textAlign: "center" },
+  emptySub: { fontSize: 14, color: T.sub, textAlign: "center", lineHeight: 22 },
+  emptyBtn: {
+    backgroundColor: T.red, borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 28, marginTop: 8,
   },
-  discoverBtnText: { color: Colors.white, fontWeight: "700", fontSize: 15 },
+  emptyBtnTxt: { color: T.white, fontWeight: "700", fontSize: 14 },
 });

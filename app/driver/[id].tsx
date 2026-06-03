@@ -14,21 +14,22 @@ const T = {
   red: "#E8002D",
   yellow: "#FFB800",
   dark: "#0A0A0A",
-  dark2: "#141414",
-  dark3: "#1E1E1E",
+  dark2: "#111111",
+  dark3: "#1C1C1C",
+  dark4: "#242424",
   gray2: "#555",
-  gray3: "#888",
-  gray4: "#BDBDBD",
-  gray5: "#E8E8E8",
-  bg: "#F7F7F7",
+  gray3: "#777",
+  gray4: "#BBBBBB",
+  gray5: "#2E2E2E",
+  bg: "#0A0A0A",
   white: "#FFFFFF",
 };
 
 const CAT_COLORS: Record<string, string> = {
-  sf: T.red, f4: "#0058CC", kart: "#00933B", other: T.gray2,
+  sf: T.red, f4: "#4D8BFF", kart: "#2ECC71", other: T.gray3,
 };
 const CAT_BG: Record<string, string> = {
-  sf: "#FFF0F3", f4: "#EEF3FF", kart: "#EEFFEE", other: "#F5F5F5",
+  sf: "rgba(232,0,45,0.15)", f4: "rgba(77,139,255,0.15)", kart: "rgba(46,204,113,0.15)", other: "rgba(255,255,255,0.08)",
 };
 const RACE_CATEGORY_LABEL: Record<string, string> = {
   kart: "カート", f4: "F4", sf: "スーパーフォーミュラ", other: "その他",
@@ -36,7 +37,7 @@ const RACE_CATEGORY_LABEL: Record<string, string> = {
 
 type DriverDetail = Driver & { profiles: { full_name: string; avatar_url?: string } };
 
-const TABS = ["プロフィール", "応援メニュー"];
+const TABS = ["ストーリー", "投稿"];
 
 /** created_at または race_history の最初の年から活動年数を算出 */
 function calcActiveYears(driver: DriverDetail): string {
@@ -65,7 +66,12 @@ export default function DriverProfilePage() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<ReturnItem | null>(null);
   const [purchasing, setPurchasing] = useState(false);
-  const [tab, setTab] = useState("プロフィール");
+  const [tab, setTab] = useState("ストーリー");
+  const [posts] = useState([
+    { id: "1", date: "2026年6月1日", title: "予選で初めてフロントロウ獲得！", body: "今日は鈴鹿で予選があった。セクター2でミスしたけど、全体タイムでP2を獲れた。チームのみんなのおかげです。応援してくれている皆さん、本当にありがとう。決勝も全力で戦います！" },
+    { id: "2", date: "2026年5月24日", title: "テスト走行 — セッティング煮詰め中", body: "先週のレースで課題だったオーバーステアに取り組んでいる。エンジニアと何度もデータを見て、ようやく方向性が見えてきた。まだ完璧じゃないけど、着実に前に進んでいる感覚がある。" },
+    { id: "3", date: "2026年5月18日", title: "ファンイベントに参加してきた", body: "今日はスポンサーさんが開催したファンイベントに参加。小さい子どもたちがヘルメット被って喜んでくれていたのが嬉しかった。こういう日があるからレースを続けられると改めて思った。" },
+  ]);
 
   useEffect(() => { if (id) loadData(); }, [id]);
 
@@ -161,6 +167,12 @@ export default function DriverProfilePage() {
   const totalBudget = story.total_budget ? parseInt(story.total_budget) : null;
   const currentFund = story.current_fund ? parseInt(story.current_fund) : null;
   const shortage = totalBudget && currentFund != null ? totalBudget - currentFund : null;
+
+  // プログレスバー用（事前計算 - inline Math.min/Math.roundはRN webでクラッシュする）
+  const progressPct = totalBudget && totalBudget > 0
+    ? Math.min(100, Math.round(((currentFund ?? 0) / totalBudget) * 100))
+    : 0;
+  const progressRemainder = 100 - progressPct;
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
@@ -315,11 +327,11 @@ export default function DriverProfilePage() {
           ))}
         </View>
 
-        {/* ─── PROFILE TAB ─── */}
-        {tab === "プロフィール" && (
+        {/* ─── ストーリー TAB ─── */}
+        {tab === "ストーリー" && (
           <View style={{ paddingBottom: 40 }}>
 
-            {/* ── 壁・葛藤（最初に見せる） ── */}
+            {/* 今直面している壁 — 感情的フック */}
             {story.conflict ? (
               <View style={styles.section}>
                 <View style={styles.conflictCard}>
@@ -329,8 +341,8 @@ export default function DriverProfilePage() {
               </View>
             ) : null}
 
-            {/* ── 参戦費用ウィジェット ── */}
-            {totalBudget && (
+            {/* 参戦費用ウィジェット */}
+            {totalBudget ? (
               <View style={styles.section}>
                 <SectionTitle>今シーズンの資金状況</SectionTitle>
                 <View style={styles.budgetWidget}>
@@ -342,12 +354,9 @@ export default function DriverProfilePage() {
                     <Text style={styles.budgetLabel}>現在調達済み</Text>
                     <Text style={[styles.budgetValue, { color: "#4CAF50" }]}>{(currentFund ?? 0).toLocaleString()}万円</Text>
                   </View>
-                  {/* プログレスバー */}
                   <View style={styles.progressBg}>
-                    <View style={[styles.progressFill, {
-                      flex: Math.min(100, Math.round(((currentFund ?? 0) / totalBudget) * 100)),
-                    }]} />
-                    <View style={{ flex: Math.max(0, 100 - Math.min(100, Math.round(((currentFund ?? 0) / totalBudget) * 100))), backgroundColor: "transparent" }} />
+                    <View style={[styles.progressFill, { flex: progressPct }]} />
+                    <View style={{ flex: progressRemainder, backgroundColor: "transparent" }} />
                   </View>
                   {shortage != null && shortage > 0 && (
                     <Text style={styles.shortageText}>
@@ -356,9 +365,9 @@ export default function DriverProfilePage() {
                   )}
                 </View>
               </View>
-            )}
+            ) : null}
 
-            {/* ── なぜレースをするのか ── */}
+            {/* なぜレースを続けるのか */}
             {story.why ? (
               <View style={styles.section}>
                 <SectionTitle>なぜレースを続けるのか</SectionTitle>
@@ -366,81 +375,13 @@ export default function DriverProfilePage() {
               </View>
             ) : null}
 
-            {/* ── 今シーズンの状況 ── */}
+            {/* 今シーズンの状況 */}
             {story.now ? (
               <View style={styles.section}>
                 <SectionTitle>今シーズンの状況</SectionTitle>
                 <Text style={styles.storyText}>{story.now}</Text>
               </View>
             ) : null}
-
-            {/* 今季レース結果 */}
-            {raceResults.length > 0 && (
-              <View style={styles.section}>
-                <SectionTitle>今季レース結果</SectionTitle>
-                {/* Header row */}
-                <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, { width: 36 }]}>Rd.</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>サーキット</Text>
-                  <Text style={[styles.tableHeaderCell, { width: 40, textAlign: "center" }]}>予選</Text>
-                  <Text style={[styles.tableHeaderCell, { width: 40, textAlign: "center" }]}>決勝</Text>
-                  <Text style={[styles.tableHeaderCell, { width: 52, textAlign: "right" }]}>ポイント</Text>
-                </View>
-                {raceResults.map((r, i) => {
-                  const isWin = r.race === 1;
-                  const isPodium = r.race != null && r.race <= 3;
-                  return (
-                    <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
-                      <Text style={[styles.tableCell, { width: 36, color: T.gray3 }]}>{r.round}</Text>
-                      <Text style={[styles.tableCell, { flex: 1 }]} numberOfLines={1}>{r.circuit}</Text>
-                      <Text style={[styles.tableCell, { width: 40, textAlign: "center", color: T.gray3 }]}>
-                        {r.qualifying != null ? `P${r.qualifying}` : "—"}
-                      </Text>
-                      <View style={{ width: 40, alignItems: "center", justifyContent: "center" }}>
-                        {r.race != null ? (
-                          <View style={[
-                            styles.racePosBadge,
-                            isWin && { backgroundColor: T.yellow },
-                            isPodium && !isWin && { backgroundColor: "#E8F0FF" },
-                          ]}>
-                            <Text style={[
-                              styles.racePosText,
-                              isWin && { color: T.dark },
-                              isPodium && !isWin && { color: "#0058CC" },
-                            ]}>P{r.race}</Text>
-                          </View>
-                        ) : (
-                          <Text style={[styles.tableCell, { color: T.gray4 }]}>—</Text>
-                        )}
-                      </View>
-                      <Text style={[styles.tableCell, { width: 52, textAlign: "right", color: r.points !== "0" ? T.dark : T.gray4, fontWeight: r.points !== "0" ? "700" : "400" }]}>
-                        {r.points}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            {/* フォトギャラリー */}
-            {driver.photo_urls && driver.photo_urls.length > 0 && (
-              <View style={styles.section}>
-                <SectionTitle>フォトギャラリー</SectionTitle>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }}>
-                  <View style={{ paddingHorizontal: 20, flexDirection: "row", gap: 10 }}>
-                    {driver.photo_urls.map((url, i) => (
-                      <Image key={i} source={{ uri: url }} style={styles.galleryPhoto} />
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-            )}
-
-            {/* ストーリー */}
-            <View style={styles.section}>
-              <SectionTitle>ストーリー</SectionTitle>
-              <Text style={styles.bioText}>{driver.bio ?? "このドライバーのストーリーは準備中です。"}</Text>
-            </View>
 
             {/* 経歴タイムライン */}
             {timeline.length > 0 && (
@@ -466,82 +407,142 @@ export default function DriverProfilePage() {
             )}
 
             {/* 今季目標 */}
-            <View style={styles.section}>
-              <SectionTitle>今季目標</SectionTitle>
-              {driver.goal
-                ? driver.goal.split("\n").filter(Boolean).map((line, i) => (
-                    <View key={i} style={styles.goalRow}>
-                      <View style={styles.goalDot} />
-                      <Text style={styles.goalText}>{line}</Text>
-                    </View>
-                  ))
-                : <Text style={styles.bioText}>今季目標は準備中です</Text>}
-            </View>
-
-            {/* 戦績 */}
-            <View style={styles.section}>
-              <SectionTitle>戦績</SectionTitle>
-              {driver.race_history
-                ? driver.race_history.split("\n").filter(Boolean).map((line, i) => (
-                    <View key={i} style={styles.raceRow}>
-                      <Text style={styles.raceBullet}>▸</Text>
-                      <Text style={styles.raceText}>{line}</Text>
-                    </View>
-                  ))
-                : <Text style={styles.bioText}>戦績は準備中です</Text>}
-            </View>
-
-            {/* スポンサー */}
-            {sponsors.length > 0 && (
+            {driver.goal ? (
               <View style={styles.section}>
-                <SectionTitle>スポンサー</SectionTitle>
-                <View style={styles.sponsorRow}>
-                  {sponsors.map((s, i) => (
-                    <View key={i} style={styles.sponsorChip}>
-                      {s.logo_url
-                        ? <Image source={{ uri: s.logo_url }} style={styles.sponsorLogo} />
-                        : <Text style={styles.sponsorName}>{s.name}</Text>}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* ─── 応援メニュー TAB ─── */}
-        {tab === "応援メニュー" && (
-          <View style={styles.plansSection}>
-
-            {/* 支援で何が変わるか */}
-            {story.fund_usage ? (
-              <View style={styles.fundUsageCard}>
-                <Text style={styles.fundUsageTitle}>🏁 あなたの支援で変わること</Text>
-                <Text style={styles.fundUsageText}>{story.fund_usage}</Text>
+                <SectionTitle>今季の目標</SectionTitle>
+                {driver.goal.split("\n").filter(Boolean).map((line, i) => (
+                  <View key={i} style={styles.goalRow}>
+                    <View style={styles.goalDot} />
+                    <Text style={styles.goalText}>{line}</Text>
+                  </View>
+                ))}
               </View>
             ) : null}
 
-            {individualItems.length > 0 && (
-              <>
-                <Text style={styles.planCatLabel}>🙋 個人向け</Text>
-                {individualItems.map((item) => (
-                  <ReturnCard key={item.id} item={item} onPress={() => setSelectedItem(item)} />
-                ))}
-              </>
-            )}
-            {corporateItems.length > 0 && (
-              <>
-                <Text style={[styles.planCatLabel, { marginTop: 20 }]}>🏢 企業向け</Text>
-                {corporateItems.map((item) => (
-                  <ReturnCard key={item.id} item={item} onPress={() => setSelectedItem(item)} />
-                ))}
-              </>
-            )}
-            {returnItems.length === 0 && (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>応援メニューは準備中です</Text>
+            {/* 今季レース結果 */}
+            {raceResults.length > 0 && (
+              <View style={styles.section}>
+                <SectionTitle>今季レース結果</SectionTitle>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableHeaderCell, { width: 36 }]}>Rd.</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>サーキット</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 40, textAlign: "center" }]}>予選</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 40, textAlign: "center" }]}>決勝</Text>
+                  <Text style={[styles.tableHeaderCell, { width: 52, textAlign: "right" }]}>Pt.</Text>
+                </View>
+                {raceResults.map((r, i) => {
+                  const isWin = r.race === 1;
+                  const isPodium = r.race != null && r.race <= 3;
+                  return (
+                    <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+                      <Text style={[styles.tableCell, { width: 36, color: T.gray3 }]}>{r.round}</Text>
+                      <Text style={[styles.tableCell, { flex: 1 }]} numberOfLines={1}>{r.circuit}</Text>
+                      <Text style={[styles.tableCell, { width: 40, textAlign: "center", color: T.gray3 }]}>
+                        {r.qualifying != null ? `P${r.qualifying}` : "—"}
+                      </Text>
+                      <View style={{ width: 40, alignItems: "center", justifyContent: "center" }}>
+                        {r.race != null ? (
+                          <View style={[styles.racePosBadge, isWin && { backgroundColor: T.yellow }, isPodium && !isWin && { backgroundColor: "#1A2A4A" }]}>
+                            <Text style={[styles.racePosText, isWin && { color: "#000" }, isPodium && !isWin && { color: "#4D8BFF" }]}>P{r.race}</Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.tableCell, { color: T.gray4 }]}>—</Text>
+                        )}
+                      </View>
+                      <Text style={[styles.tableCell, { width: 52, textAlign: "right", color: r.points !== "0" ? T.white : T.gray3, fontWeight: r.points !== "0" ? "700" : "400" }]}>
+                        {r.points}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             )}
+
+            {/* フォトギャラリー */}
+            {driver.photo_urls && driver.photo_urls.length > 0 && (
+              <View style={styles.section}>
+                <SectionTitle>フォトギャラリー</SectionTitle>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }}>
+                  <View style={{ paddingHorizontal: 20, flexDirection: "row", gap: 10 }}>
+                    {driver.photo_urls.map((url, i) => (
+                      <Image key={i} source={{ uri: url }} style={styles.galleryPhoto} />
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
+            {/* ── 応援メニュー（ストーリー末尾） ── */}
+            <View style={styles.section}>
+              <SectionTitle>応援する</SectionTitle>
+              {story.fund_usage ? (
+                <View style={[styles.fundUsageCard, { marginBottom: 16 }]}>
+                  <Text style={styles.fundUsageTitle}>あなたの支援で変わること</Text>
+                  <Text style={styles.fundUsageText}>{story.fund_usage}</Text>
+                </View>
+              ) : null}
+              {returnItems.length > 0 ? (
+                <>
+                  {individualItems.map((item) => (
+                    <ReturnCard key={item.id} item={item} onPress={() => setSelectedItem(item)} />
+                  ))}
+                  {corporateItems.map((item) => (
+                    <ReturnCard key={item.id} item={item} onPress={() => setSelectedItem(item)} />
+                  ))}
+                </>
+              ) : (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyText}>応援メニューは準備中です</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ─── 投稿 TAB ─── */}
+        {tab === "投稿" && (
+          <View style={{ paddingBottom: 60 }}>
+            {posts.map((post) => (
+              <View key={post.id} style={styles.postRow}>
+                {/* 左：アバター＋スレッドライン */}
+                <View style={styles.postLeft}>
+                  <View>
+                    {avatarUrl ? (
+                      <Image source={{ uri: avatarUrl }} style={styles.postAvatar} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.postAvatar, { backgroundColor: CAT_COLORS[cat] ?? T.gray3, alignItems: "center", justifyContent: "center" }]}>
+                        <Text style={{ color: T.white, fontWeight: "700", fontSize: 15 }}>{fullName[0]}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.postThread} />
+                </View>
+                {/* 右：コンテンツ */}
+                <View style={styles.postRight}>
+                  <View style={styles.postHeadRow}>
+                    <Text style={styles.postName}>{fullName}</Text>
+                    <Text style={styles.postDot}>·</Text>
+                    <Text style={styles.postDate}>{post.date}</Text>
+                  </View>
+                  <Text style={styles.postTitle}>{post.title}</Text>
+                  <Text style={styles.postBody}>{post.body}</Text>
+                  <View style={styles.postActions}>
+                    <TouchableOpacity style={styles.postActionBtn}>
+                      <Text style={styles.postActionIco}>♡</Text>
+                      <Text style={styles.postActionTxt}>24</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.postActionBtn}>
+                      <Text style={styles.postActionIco}>○</Text>
+                      <Text style={styles.postActionTxt}>6</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.postActionBtn}>
+                      <Text style={styles.postActionIco}>↑</Text>
+                      <Text style={styles.postActionTxt}>シェア</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -659,10 +660,10 @@ function ReturnCard({ item, onPress }: { item: ReturnItem; onPress: () => void }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.white },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.dark },
 
   // ── Hero ──
-  heroSection: { height: 260, position: "relative" },
+  heroSection: { height: 300, position: "relative" },
   heroCover: { width: "100%", height: "100%", resizeMode: "cover", position: "absolute" },
   heroCoverFallback: {
     width: "100%", height: "100%", backgroundColor: T.dark,
@@ -701,61 +702,61 @@ const styles = StyleSheet.create({
 
   // ── Profile block ──
   profileBlock: {
-    backgroundColor: T.white, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
+    backgroundColor: T.dark2, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
     borderBottomWidth: 1, borderBottomColor: T.gray5,
   },
   avatarWrapper: {
-    marginTop: -52, marginBottom: 12,
-    width: 80, height: 80, borderRadius: 40,
-    borderWidth: 3, borderColor: T.white,
-    shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 6, elevation: 5,
+    marginTop: 16, marginBottom: 12,
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 2, borderColor: T.gray5,
     overflow: "hidden",
   },
   avatar: { width: "100%", height: "100%", borderRadius: 40 },
   avatarFallback: { backgroundColor: T.red, justifyContent: "center", alignItems: "center" },
   avatarInitial: { color: T.white, fontSize: 30, fontWeight: "800" },
   catchphrase: {
-    fontSize: 14, color: T.red, fontWeight: "700", fontStyle: "italic",
-    marginBottom: 12, lineHeight: 22,
+    fontSize: 16, color: "#FF6B6B", fontWeight: "700", fontStyle: "italic",
+    marginBottom: 14, lineHeight: 24,
   },
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 14 },
   metaPill: {
-    backgroundColor: T.bg, borderRadius: 20,
+    backgroundColor: T.dark3, borderRadius: 20,
     paddingVertical: 4, paddingHorizontal: 10,
+    borderWidth: 1, borderColor: T.gray5,
   },
-  metaPillText: { fontSize: 12, color: T.gray2 },
+  metaPillText: { fontSize: 12, color: T.gray4 },
 
   // Motto
   mottoBox: {
-    backgroundColor: "#FFF8F0", borderLeftWidth: 3, borderLeftColor: T.yellow,
+    backgroundColor: "rgba(255,184,0,0.08)", borderLeftWidth: 3, borderLeftColor: T.yellow,
     borderRadius: 6, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 14,
   },
   mottoLabel: { fontSize: 10, fontWeight: "700", color: T.gray3, marginBottom: 3, letterSpacing: 0.5 },
-  mottoText: { fontSize: 14, fontWeight: "700", color: T.dark, fontStyle: "italic" },
+  mottoText: { fontSize: 14, fontWeight: "700", color: T.white, fontStyle: "italic" },
 
   // Stats
   statsBar: {
     flexDirection: "row", borderWidth: 1, borderColor: T.gray5,
     borderRadius: 12, overflow: "hidden", marginBottom: 14,
-    backgroundColor: T.white,
+    backgroundColor: T.dark3,
   },
   statItem: { flex: 1, paddingVertical: 12, alignItems: "center" },
   statDivider: { borderRightWidth: 1, borderRightColor: T.gray5 },
-  statValue: { fontSize: 22, fontWeight: "900", color: T.dark },
-  statUnit: { fontSize: 13, fontWeight: "400", color: T.gray3 },
-  statLabel: { fontSize: 10, color: T.gray3, marginTop: 2, letterSpacing: 0.3 },
+  statValue: { fontSize: 22, fontWeight: "900", color: T.white },
+  statUnit: { fontSize: 13, fontWeight: "400", color: T.gray4 },
+  statLabel: { fontSize: 11, color: T.gray4, marginTop: 3, letterSpacing: 0.3 },
 
   // SNS
   snsRow: { flexDirection: "row", gap: 8 },
   snsBtn: {
     flex: 1, borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
-    paddingVertical: 8, alignItems: "center",
+    paddingVertical: 8, alignItems: "center", backgroundColor: T.dark3,
   },
-  snsBtnText: { fontSize: 12, fontWeight: "600", color: T.gray2 },
+  snsBtnText: { fontSize: 12, fontWeight: "600", color: T.gray4 },
 
   // Tabs
   tabBar: {
-    flexDirection: "row", backgroundColor: T.white,
+    flexDirection: "row", backgroundColor: T.dark2,
     borderBottomWidth: 1, borderBottomColor: T.gray5,
   },
   tabItem: {
@@ -768,13 +769,13 @@ const styles = StyleSheet.create({
 
   // Sections
   section: {
-    backgroundColor: T.white, marginBottom: 8,
+    backgroundColor: T.dark2, marginBottom: 2,
     paddingHorizontal: 20, paddingVertical: 20,
   },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
   sectionAccent: { width: 3, height: 18, backgroundColor: T.red, borderRadius: 2 },
-  sectionHeading: { fontSize: 15, fontWeight: "900", color: T.dark, letterSpacing: 0.3 },
-  bioText: { fontSize: 14, color: T.gray2, lineHeight: 26 },
+  sectionHeading: { fontSize: 17, fontWeight: "900", color: T.white, letterSpacing: 0.3 },
+  bioText: { fontSize: 15, color: T.gray4, lineHeight: 28 },
 
   // Gallery
   galleryPhoto: { width: 220, height: 150, borderRadius: 12, resizeMode: "cover" },
@@ -786,19 +787,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2, borderBottomColor: T.dark,
     marginBottom: 2,
   },
-  tableHeaderCell: { fontSize: 10, fontWeight: "800", color: T.dark, letterSpacing: 0.5, textTransform: "uppercase" },
+  tableHeaderCell: { fontSize: 10, fontWeight: "800", color: T.gray4, letterSpacing: 0.5, textTransform: "uppercase" },
   tableRow: {
     flexDirection: "row", alignItems: "center",
     paddingVertical: 8, paddingHorizontal: 8,
     borderBottomWidth: 1, borderBottomColor: T.gray5,
   },
-  tableRowAlt: { backgroundColor: "#FAFAFA" },
-  tableCell: { fontSize: 13, color: T.dark },
+  tableRowAlt: { backgroundColor: T.dark3 },
+  tableCell: { fontSize: 13, color: T.white },
   racePosBadge: {
     borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6,
-    backgroundColor: T.bg,
+    backgroundColor: T.dark4,
   },
-  racePosText: { fontSize: 11, fontWeight: "700", color: T.dark },
+  racePosText: { fontSize: 11, fontWeight: "700", color: T.white },
 
   // Timeline
   timeline: {},
@@ -808,32 +809,33 @@ const styles = StyleSheet.create({
   timelineCenter: { width: 24, alignItems: "center" },
   timelineDot: {
     width: 12, height: 12, borderRadius: 6,
-    backgroundColor: T.red, borderWidth: 2, borderColor: T.white,
+    backgroundColor: T.red, borderWidth: 2, borderColor: T.dark2,
     marginTop: 2, zIndex: 1,
     shadowColor: T.red, shadowOpacity: 0.4, shadowRadius: 3, elevation: 2,
   },
   timelineLine: { flex: 1, width: 2, backgroundColor: T.gray5, minHeight: 24 },
   timelineRight: { flex: 1, paddingBottom: 24, paddingTop: 0 },
-  timelineEvent: { fontSize: 13, color: T.dark, lineHeight: 22 },
+  timelineEvent: { fontSize: 14, color: "#CCCCCC", lineHeight: 24 },
 
   // Goal
   goalRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
   goalDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.red, marginTop: 7, flexShrink: 0 },
-  goalText: { fontSize: 14, color: T.dark, flex: 1, lineHeight: 22 },
+  goalText: { fontSize: 15, color: "#CCCCCC", flex: 1, lineHeight: 26 },
 
   // Race history
   raceRow: { flexDirection: "row", gap: 8, marginBottom: 8, alignItems: "flex-start" },
   raceBullet: { fontSize: 12, color: T.red, marginTop: 3 },
-  raceText: { fontSize: 13, color: T.gray2, flex: 1, lineHeight: 22 },
+  raceText: { fontSize: 13, color: T.gray4, flex: 1, lineHeight: 22 },
 
   // Sponsors
   sponsorRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sponsorChip: {
     borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
     paddingVertical: 6, paddingHorizontal: 14, alignItems: "center", justifyContent: "center",
+    backgroundColor: T.dark3,
   },
   sponsorLogo: { width: 60, height: 24, resizeMode: "contain" },
-  sponsorName: { fontSize: 12, fontWeight: "600", color: T.gray2 },
+  sponsorName: { fontSize: 12, fontWeight: "600", color: T.gray4 },
 
   // 葛藤カード
   conflictCard: {
@@ -841,21 +843,21 @@ const styles = StyleSheet.create({
     padding: 18, borderLeftWidth: 4, borderLeftColor: T.red,
   },
   conflictLabel: { fontSize: 11, fontWeight: "800", color: T.red, letterSpacing: 0.5, marginBottom: 10 },
-  conflictText: { fontSize: 15, color: T.dark, fontWeight: "700", lineHeight: 26 },
+  conflictText: { fontSize: 16, color: T.white, fontWeight: "700", lineHeight: 28 },
 
   // ストーリーテキスト
-  storyText: { fontSize: 14, color: T.gray2, lineHeight: 28, letterSpacing: 0.2 },
+  storyText: { fontSize: 15, color: "#CCCCCC", lineHeight: 30, letterSpacing: 0.2 },
 
   // 資金ウィジェット
   budgetWidget: {
-    backgroundColor: T.bg, borderRadius: 14, padding: 18,
-    borderWidth: 1, borderColor: "#E8E8E8", gap: 8,
+    backgroundColor: T.dark3, borderRadius: 14, padding: 18,
+    borderWidth: 1, borderColor: T.gray5, gap: 8,
   },
   budgetRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   budgetLabel: { fontSize: 13, color: T.gray3 },
-  budgetValue: { fontSize: 16, fontWeight: "800", color: T.dark },
+  budgetValue: { fontSize: 16, fontWeight: "800", color: T.white },
   progressBg: {
-    height: 8, backgroundColor: "#E8E8E8", borderRadius: 4,
+    height: 8, backgroundColor: T.dark4, borderRadius: 4,
     overflow: "hidden", marginTop: 4, flexDirection: "row",
   },
   progressFill: {
@@ -871,6 +873,27 @@ const styles = StyleSheet.create({
   fundUsageTitle: { fontSize: 13, fontWeight: "800", color: "#FFB800", marginBottom: 10 },
   fundUsageText: { fontSize: 13, color: "#AAAAAA", lineHeight: 24 },
 
+  // Post (Twitter style)
+  postRow: {
+    flexDirection: "row",
+    paddingTop: 14, paddingHorizontal: 16, paddingBottom: 4,
+    borderBottomWidth: 1, borderBottomColor: T.gray5,
+  },
+  postLeft: { alignItems: "center", marginRight: 12 },
+  postAvatar: { width: 40, height: 40, borderRadius: 20, marginBottom: 6 },
+  postThread: { flex: 1, width: 2, backgroundColor: T.gray5, minHeight: 16 },
+  postRight: { flex: 1, paddingBottom: 12 },
+  postHeadRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 4, flexWrap: "wrap" },
+  postName: { fontSize: 14, fontWeight: "700", color: T.white },
+  postDot: { color: T.gray3, fontSize: 14 },
+  postDate: { fontSize: 13, color: T.gray3 },
+  postTitle: { fontSize: 15, fontWeight: "700", color: T.white, lineHeight: 21, marginBottom: 6 },
+  postBody: { fontSize: 14, color: "#AAAAAA", lineHeight: 22 },
+  postActions: { flexDirection: "row", gap: 22, marginTop: 10 },
+  postActionBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
+  postActionIco: { fontSize: 16, color: T.gray3 },
+  postActionTxt: { fontSize: 13, color: T.gray3 },
+
   // Plans
   plansSection: { padding: 16, paddingBottom: 80 },
   planCatLabel: {
@@ -882,13 +905,12 @@ const styles = StyleSheet.create({
 
   // ReturnCard
   returnCard: {
-    backgroundColor: T.white, borderRadius: 16, marginBottom: 16,
+    backgroundColor: T.dark3, borderRadius: 16, marginBottom: 16,
     borderWidth: 1, borderColor: T.gray5, overflow: "hidden",
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   returnImage: { width: "100%", height: 190, resizeMode: "cover" },
   returnImagePlaceholder: {
-    width: "100%", height: 140, backgroundColor: T.bg,
+    width: "100%", height: 140, backgroundColor: T.dark4,
     alignItems: "center", justifyContent: "center",
   },
   soldOutOverlay: {
@@ -908,9 +930,9 @@ const styles = StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between",
     alignItems: "flex-start", marginBottom: 6, gap: 8,
   },
-  returnTitle: { fontSize: 15, fontWeight: "800", color: T.dark, flex: 1 },
-  returnDesc: { fontSize: 12, color: T.gray2, lineHeight: 18, marginBottom: 10 },
-  returnPrice: { fontSize: 22, fontWeight: "900", color: T.dark },
+  returnTitle: { fontSize: 15, fontWeight: "800", color: T.white, flex: 1 },
+  returnDesc: { fontSize: 12, color: T.gray4, lineHeight: 18, marginBottom: 10 },
+  returnPrice: { fontSize: 22, fontWeight: "900", color: T.white },
   returnBilling: { fontSize: 12, color: T.gray3, fontWeight: "400" },
   supportBtn: {
     backgroundColor: T.red, borderRadius: 10,
