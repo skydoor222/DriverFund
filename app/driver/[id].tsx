@@ -103,17 +103,38 @@ export default function DriverProfilePage() {
     }
     if (!selectedItem || !driver) return;
     setPurchasing(true);
-    const { error } = await supabase.from("sponsorships").insert({
-      supporter_id: user.id,
-      driver_id: driver.id,
-      return_item_id: selectedItem.id,
-      amount: selectedItem.price,
-      status: "active",
-    });
-    setPurchasing(false);
-    setSelectedItem(null);
-    if (error) Alert.alert("エラー", error.message);
-    else Alert.alert("応援ありがとうございます！🏎", `${driver.profiles?.full_name}への応援が完了しました。`, [{ text: "OK" }]);
+
+    try {
+      // すでにPayment Linkがある場合はそれを使う
+      let paymentUrl = selectedItem.stripe_payment_link_url;
+
+      // なければEdge Functionで発行
+      if (!paymentUrl) {
+        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+        const res = await fetch(`${supabaseUrl}/functions/v1/create-payment-link`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({ return_item_id: selectedItem.id }),
+        });
+        const data = await res.json();
+        paymentUrl = data.url;
+      }
+
+      if (paymentUrl) {
+        setSelectedItem(null);
+        Linking.openURL(paymentUrl);
+      } else {
+        Alert.alert("エラー", "決済リンクの取得に失敗しました");
+      }
+    } catch (err: any) {
+      Alert.alert("エラー", err.message ?? "決済リンクの取得に失敗しました");
+    } finally {
+      setPurchasing(false);
+    }
   }
 
   function goBack() {
@@ -180,7 +201,6 @@ export default function DriverProfilePage() {
 
         {/* ─── HERO ─── */}
         <View style={styles.heroSection}>
-          {/* Cover image / dark bg */}
           {driver.cover_url ? (
             <Image source={{ uri: driver.cover_url }} style={styles.heroCover} />
           ) : (
@@ -190,124 +210,94 @@ export default function DriverProfilePage() {
               ))}
             </View>
           )}
-          {/* Gradient overlay */}
+          {/* 下からのグラデ */}
           <View style={styles.heroGradient} />
 
-          {/* Back button */}
+          {/* 戻るボタン */}
           <TouchableOpacity style={styles.backBtn} onPress={goBack}>
             <Text style={styles.backBtnText}>‹</Text>
           </TouchableOpacity>
 
-          {/* Hero content — bottom of cover */}
-          <View style={styles.heroContent}>
-            {/* Category badge */}
-            <View style={[styles.heroCatBadge, { backgroundColor: CAT_COLORS[cat] ?? T.gray2 }]}>
-              <Text style={styles.heroCatText}>{RACE_CATEGORY_LABEL[cat]}</Text>
+          {/* ヒーロー下部：アバター＋名前を統合 */}
+          <View style={styles.heroBottom}>
+            <View style={styles.heroAvatarWrap}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.heroAvatar} resizeMode="cover" />
+              ) : (
+                <View style={[styles.heroAvatar, { backgroundColor: CAT_COLORS[cat] ?? T.gray3, alignItems: "center", justifyContent: "center" }]}>
+                  <Text style={{ color: T.white, fontSize: 28, fontWeight: "800" }}>{fullName[0]}</Text>
+                </View>
+              )}
             </View>
-
-            {/* Name + car number */}
-            <View style={styles.heroNameRow}>
+            <View style={styles.heroInfo}>
+              <View style={styles.heroTopRow}>
+                <View style={[styles.heroCatBadge, { backgroundColor: CAT_COLORS[cat] ?? T.gray3 }]}>
+                  <Text style={styles.heroCatText}>{RACE_CATEGORY_LABEL[cat]}</Text>
+                </View>
+                {driver.car_number ? (
+                  <Text style={styles.heroCarNumber}>#{driver.car_number}</Text>
+                ) : null}
+              </View>
               <Text style={styles.heroName}>{fullName}</Text>
-              {driver.car_number ? (
-                <Text style={styles.heroCarNumber}>#{driver.car_number}</Text>
+              {(driver.team_name || driver.series_name) ? (
+                <Text style={styles.heroTeam}>
+                  {[driver.team_name, driver.series_name].filter(Boolean).join(" · ")}
+                </Text>
               ) : null}
             </View>
-
-            {/* Team / Series */}
-            {(driver.team_name || driver.series_name) && (
-              <Text style={styles.heroTeam}>
-                {[driver.team_name, driver.series_name].filter(Boolean).join("  /  ")}
-              </Text>
-            )}
           </View>
         </View>
 
         {/* ─── PROFILE BLOCK ─── */}
         <View style={styles.profileBlock}>
-          {/* Avatar */}
-          <View style={styles.avatarWrapper}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}>
-                <Text style={styles.avatarInitial}>{fullName[0] ?? "?"}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Catchphrase */}
+          {/* キャッチフレーズ */}
           {driver.catchphrase ? (
-            <Text style={styles.catchphrase}>「{driver.catchphrase}」</Text>
+            <Text style={styles.catchphrase}>"{driver.catchphrase}"</Text>
           ) : null}
 
-          {/* Meta pills */}
+          {/* メタ情報：横並びシンプル */}
           <View style={styles.metaRow}>
-            {driver.age ? (
-              <View style={styles.metaPill}><Text style={styles.metaPillText}>🎂 {driver.age}歳</Text></View>
-            ) : null}
-            {driver.hometown ? (
-              <View style={styles.metaPill}><Text style={styles.metaPillText}>📍 {driver.hometown}</Text></View>
-            ) : null}
-            {(driver as any).blood_type ? (
-              <View style={styles.metaPill}><Text style={styles.metaPillText}>🩸 {(driver as any).blood_type}型</Text></View>
-            ) : null}
+            {driver.age ? <Text style={styles.metaText}>{driver.age}歳</Text> : null}
+            {driver.age && driver.hometown ? <Text style={styles.metaDot}>·</Text> : null}
+            {driver.hometown ? <Text style={styles.metaText}>{driver.hometown}</Text> : null}
+            {(driver as any).blood_type ? <Text style={styles.metaDot}>·</Text> : null}
+            {(driver as any).blood_type ? <Text style={styles.metaText}>{(driver as any).blood_type}型</Text> : null}
           </View>
 
           {/* 座右の銘 */}
           {(driver as any).motto ? (
             <View style={styles.mottoBox}>
               <Text style={styles.mottoLabel}>座右の銘</Text>
-              <Text style={styles.mottoText}>「{(driver as any).motto}」</Text>
+              <Text style={styles.mottoText}>"{(driver as any).motto}"</Text>
             </View>
           ) : null}
 
-          {/* Stats bar */}
+          {/* Stats：横4列 */}
           <View style={styles.statsBar}>
-            <View style={[styles.statItem, styles.statDivider]}>
-              <Text style={styles.statValue}>
-                {driver.series_rank ? (
-                  <Text>P{driver.series_rank}</Text>
-                ) : "—"}
-              </Text>
-              <Text style={styles.statLabel}>今季順位</Text>
-            </View>
-            <View style={[styles.statItem, styles.statDivider]}>
-              <Text style={styles.statValue}>
-                {driver.total_points != null ? String(driver.total_points) : "—"}
-                {driver.total_points != null ? <Text style={styles.statUnit}>pt</Text> : null}
-              </Text>
-              <Text style={styles.statLabel}>獲得ポイント</Text>
-            </View>
-            <View style={[styles.statItem, styles.statDivider]}>
-              <Text style={styles.statValue}>{driver.total_supporters ?? 0}<Text style={styles.statUnit}>名</Text></Text>
-              <Text style={styles.statLabel}>応援者</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {activeYears}
-                {activeYears !== "—" ? <Text style={styles.statUnit}>年</Text> : null}
-              </Text>
-              <Text style={styles.statLabel}>活動年数</Text>
-            </View>
+            {[
+              { value: driver.series_rank ? `P${driver.series_rank}` : "—", label: "今季順位" },
+              { value: driver.total_points != null ? `${driver.total_points}` : "—", label: "獲得Pt" },
+              { value: String(driver.total_supporters ?? 0), label: "応援者" },
+              { value: activeYears !== "—" ? activeYears : "—", label: "活動年数" },
+            ].map((s, i, arr) => (
+              <View key={i} style={[styles.statItem, i < arr.length - 1 && styles.statDivider]}>
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </View>
+            ))}
           </View>
 
           {/* SNS */}
           {(driver.sns_x || driver.sns_instagram) && (
             <View style={styles.snsRow}>
               {driver.sns_x && (
-                <TouchableOpacity
-                  style={styles.snsBtn}
-                  onPress={() => Linking.openURL(`https://x.com/${driver.sns_x?.replace("@", "")}`)}
-                >
-                  <Text style={styles.snsBtnText}>𝕏 {driver.sns_x}</Text>
+                <TouchableOpacity style={styles.snsBtn} onPress={() => Linking.openURL(`https://x.com/${driver.sns_x?.replace("@", "")}`)}>
+                  <Text style={styles.snsBtnText}>𝕏  {driver.sns_x}</Text>
                 </TouchableOpacity>
               )}
               {driver.sns_instagram && (
-                <TouchableOpacity
-                  style={styles.snsBtn}
-                  onPress={() => Linking.openURL(`https://instagram.com/${driver.sns_instagram?.replace("@", "")}`)}
-                >
-                  <Text style={styles.snsBtnText}>📸 {driver.sns_instagram}</Text>
+                <TouchableOpacity style={styles.snsBtn} onPress={() => Linking.openURL(`https://instagram.com/${driver.sns_instagram?.replace("@", "")}`)}>
+                  <Text style={styles.snsBtnText}>ig  {driver.sns_instagram}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -663,96 +653,90 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.dark },
 
   // ── Hero ──
-  heroSection: { height: 300, position: "relative" },
+  heroSection: { height: 280, position: "relative" },
   heroCover: { width: "100%", height: "100%", resizeMode: "cover", position: "absolute" },
   heroCoverFallback: {
-    width: "100%", height: "100%", backgroundColor: T.dark,
+    width: "100%", height: "100%", backgroundColor: "#111",
     overflow: "hidden", position: "absolute",
   },
   speedLine: {
     position: "absolute", width: 2, top: 0, bottom: 0,
-    backgroundColor: T.white, opacity: 0.06,
+    backgroundColor: T.white, opacity: 0.04,
     transform: [{ skewX: "-20deg" }],
   },
   heroGradient: {
-    position: "absolute", bottom: 0, left: 0, right: 0, height: 180,
-    // フェードをCSSグラデ代わりに複数Viewで表現
-    backgroundColor: "transparent",
+    position: "absolute", bottom: 0, left: 0, right: 0, height: 200,
+    backgroundColor: "rgba(0,0,0,0.65)",
   },
   backBtn: {
-    position: "absolute", top: 48, left: 16,
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    position: "absolute", top: 52, left: 16,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.5)",
     alignItems: "center", justifyContent: "center",
     zIndex: 10,
   },
-  backBtnText: { color: T.white, fontSize: 26, lineHeight: 30, marginLeft: -2 },
-  heroContent: {
-    position: "absolute", bottom: 20, left: 20, right: 20,
+  backBtnText: { color: T.white, fontSize: 24, lineHeight: 28, marginLeft: -2 },
+
+  // ヒーロー下部（アバター＋名前統合）
+  heroBottom: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    flexDirection: "row", alignItems: "flex-end",
+    paddingHorizontal: 20, paddingBottom: 20, gap: 14,
   },
+  heroAvatarWrap: {
+    width: 64, height: 64, borderRadius: 32,
+    borderWidth: 2, borderColor: "rgba(255,255,255,0.2)",
+    overflow: "hidden", flexShrink: 0,
+  },
+  heroAvatar: { width: "100%", height: "100%" },
+  heroInfo: { flex: 1, paddingBottom: 2 },
+  heroTopRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 5 },
   heroCatBadge: {
-    alignSelf: "flex-start", borderRadius: 4,
-    paddingVertical: 3, paddingHorizontal: 10, marginBottom: 8,
+    borderRadius: 4, paddingVertical: 2, paddingHorizontal: 8,
   },
-  heroCatText: { color: T.white, fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" },
-  heroNameRow: { flexDirection: "row", alignItems: "flex-end", gap: 10, marginBottom: 4 },
-  heroName: { fontSize: 28, fontWeight: "900", color: T.white, letterSpacing: 0.5, flex: 1 },
-  heroCarNumber: { fontSize: 22, fontWeight: "700", color: "rgba(255,255,255,0.6)", letterSpacing: 1 },
-  heroTeam: { fontSize: 12, color: "rgba(255,255,255,0.65)", letterSpacing: 0.3 },
+  heroCatText: { color: T.white, fontSize: 10, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" },
+  heroCarNumber: { fontSize: 13, fontWeight: "700", color: "rgba(255,255,255,0.5)", letterSpacing: 1 },
+  heroName: { fontSize: 24, fontWeight: "900", color: T.white, letterSpacing: 0.3, lineHeight: 28 },
+  heroTeam: { fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 3 },
 
   // ── Profile block ──
   profileBlock: {
-    backgroundColor: T.dark2, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
+    backgroundColor: T.bg, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 20,
     borderBottomWidth: 1, borderBottomColor: T.gray5,
   },
-  avatarWrapper: {
-    marginTop: 16, marginBottom: 12,
-    width: 72, height: 72, borderRadius: 36,
-    borderWidth: 2, borderColor: T.gray5,
-    overflow: "hidden",
-  },
-  avatar: { width: "100%", height: "100%", borderRadius: 40 },
-  avatarFallback: { backgroundColor: T.red, justifyContent: "center", alignItems: "center" },
-  avatarInitial: { color: T.white, fontSize: 30, fontWeight: "800" },
   catchphrase: {
-    fontSize: 16, color: "#FF6B6B", fontWeight: "700", fontStyle: "italic",
-    marginBottom: 14, lineHeight: 24,
+    fontSize: 15, color: "#DDDDDD", fontWeight: "600", fontStyle: "italic",
+    marginBottom: 12, lineHeight: 22,
   },
-  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 14 },
-  metaPill: {
-    backgroundColor: T.dark3, borderRadius: 20,
-    paddingVertical: 4, paddingHorizontal: 10,
-    borderWidth: 1, borderColor: T.gray5,
-  },
-  metaPillText: { fontSize: 12, color: T.gray4 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" },
+  metaText: { fontSize: 13, color: T.gray3 },
+  metaDot: { fontSize: 13, color: T.gray5 },
 
   // Motto
   mottoBox: {
-    backgroundColor: "rgba(255,184,0,0.08)", borderLeftWidth: 3, borderLeftColor: T.yellow,
-    borderRadius: 6, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 14,
+    backgroundColor: T.dark3, borderLeftWidth: 2, borderLeftColor: T.gray3,
+    borderRadius: 6, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 16,
   },
-  mottoLabel: { fontSize: 10, fontWeight: "700", color: T.gray3, marginBottom: 3, letterSpacing: 0.5 },
-  mottoText: { fontSize: 14, fontWeight: "700", color: T.white, fontStyle: "italic" },
+  mottoLabel: { fontSize: 10, fontWeight: "700", color: T.gray3, marginBottom: 4, letterSpacing: 0.8, textTransform: "uppercase" },
+  mottoText: { fontSize: 14, color: "#CCCCCC", fontStyle: "italic", lineHeight: 20 },
 
   // Stats
   statsBar: {
-    flexDirection: "row", borderWidth: 1, borderColor: T.gray5,
-    borderRadius: 12, overflow: "hidden", marginBottom: 14,
-    backgroundColor: T.dark3,
+    flexDirection: "row", marginBottom: 16,
   },
-  statItem: { flex: 1, paddingVertical: 12, alignItems: "center" },
+  statItem: { flex: 1, alignItems: "center", paddingVertical: 10 },
   statDivider: { borderRightWidth: 1, borderRightColor: T.gray5 },
-  statValue: { fontSize: 22, fontWeight: "900", color: T.white },
-  statUnit: { fontSize: 13, fontWeight: "400", color: T.gray4 },
-  statLabel: { fontSize: 11, color: T.gray4, marginTop: 3, letterSpacing: 0.3 },
+  statValue: { fontSize: 20, fontWeight: "800", color: T.white },
+  statUnit: { fontSize: 12, fontWeight: "400", color: T.gray3 },
+  statLabel: { fontSize: 11, color: T.gray3, marginTop: 3 },
 
   // SNS
   snsRow: { flexDirection: "row", gap: 8 },
   snsBtn: {
     flex: 1, borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
-    paddingVertical: 8, alignItems: "center", backgroundColor: T.dark3,
+    paddingVertical: 9, alignItems: "center", backgroundColor: T.dark3,
   },
-  snsBtnText: { fontSize: 12, fontWeight: "600", color: T.gray4 },
+  snsBtnText: { fontSize: 12, fontWeight: "600", color: T.gray4, letterSpacing: 0.3 },
 
   // Tabs
   tabBar: {

@@ -73,7 +73,7 @@ export interface ReturnItem {
   driver_id: string;
   title: string;
   description?: string;
-  image_url?: string;   // リターンイメージ画像
+  image_url?: string;
   category: ReturnItemCategory;
   price: number;
   quantity_limit?: number;
@@ -81,6 +81,9 @@ export interface ReturnItem {
   billing_type: BillingType;
   target: "individual" | "corporate" | "both";
   is_active: boolean;
+  // Stripe
+  stripe_price_id?: string;
+  stripe_payment_link_url?: string;
 }
 
 export interface Sponsorship {
