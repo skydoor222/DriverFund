@@ -8,6 +8,17 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { Driver, RacingCategory } from "../../lib/types";
 
+function PersonIcon({ color }: { color: string }) {
+  return (
+    <View style={{ width: 18, height: 18, alignItems: "center" }}>
+      {/* 頭 */}
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color, marginBottom: 2 }} />
+      {/* 肩 */}
+      <View style={{ width: 14, height: 6, borderTopLeftRadius: 7, borderTopRightRadius: 7, backgroundColor: color }} />
+    </View>
+  );
+}
+
 const T = {
   red: "#E8002D",
   bg: "#0D0D0D",
@@ -85,7 +96,7 @@ export default function DiscoverScreen() {
       <View style={s.header}>
         <Text style={s.headerTitle}>DriverFund</Text>
         <TouchableOpacity style={s.avatarBtn} onPress={() => setMenuOpen(true)}>
-          <Text style={s.avatarBtnText}>👤</Text>
+          <PersonIcon color="#888" />
         </TouchableOpacity>
       </View>
 
@@ -219,7 +230,7 @@ export default function DiscoverScreen() {
             <View style={s.sheetHandle} />
             <View style={s.sheetUserRow}>
               <View style={s.sheetAvatar}>
-                <Text style={{ fontSize: 20 }}>👤</Text>
+                <PersonIcon color="#888" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.sheetEmail} numberOfLines={1}>{user?.email}</Text>
@@ -255,9 +266,10 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: "800", color: T.text, letterSpacing: 0.5 },
   avatarBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: T.surface, borderWidth: 1, borderColor: T.border,
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1.5, borderColor: "#444",
     alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
   },
   avatarBtnText: { fontSize: 16 },
 
@@ -279,9 +291,9 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: T.border, borderRadius: 16,
     paddingVertical: 5, paddingHorizontal: 14, backgroundColor: T.surface,
   },
-  chipOn: { backgroundColor: T.red, borderColor: T.red },
+  chipOn: { backgroundColor: "transparent", borderColor: T.white },
   chipTxt: { fontSize: 13, fontWeight: "500", color: T.sub },
-  chipTxtOn: { color: T.white, fontWeight: "700" },
+  chipTxtOn: { color: T.white, fontWeight: "600" },
 
   // List
   list: { paddingBottom: 100 },

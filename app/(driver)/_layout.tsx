@@ -1,5 +1,5 @@
+import { Text } from "react-native";
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 export default function DriverLayout() {
   return (
@@ -28,7 +28,7 @@ export default function DriverLayout() {
         options={{
           title: "ホーム",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Text style={{ fontSize: size - 2, color }}>🏠</Text>
           ),
         }}
       />
@@ -37,7 +37,7 @@ export default function DriverLayout() {
         options={{
           title: "お返し",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="gift-outline" size={size} color={color} />
+            <Text style={{ fontSize: size - 2, color }}>🎁</Text>
           ),
         }}
       />
@@ -46,7 +46,7 @@ export default function DriverLayout() {
         options={{
           title: "設定",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+            <Text style={{ fontSize: size - 2, color }}>⚙️</Text>
           ),
         }}
       />
