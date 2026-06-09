@@ -39,10 +39,10 @@ Deno.serve(async (req) => {
       return json({ error: "return_item_id is required" }, 400);
     }
 
-    // return_item を取得
+    // return_item を取得（ドライバーのstripe_account_idも一緒に）
     const { data: item, error: itemErr } = await supabase
       .from("return_items")
-      .select("*, drivers(full_name)")
+      .select("*, drivers(full_name, stripe_account_id, stripe_onboarding_complete)")
       .eq("id", return_item_id)
       .single();
 
@@ -55,40 +55,59 @@ Deno.serve(async (req) => {
       return json({ url: item.stripe_payment_link_url });
     }
 
+    // ドライバーのStripe Connectアカウント確認
+    const connectedAccountId = item.drivers?.stripe_account_id;
+    const isConnected = item.drivers?.stripe_onboarding_complete === true;
+
+    // Connectアカウントがある場合はそのアカウントで作成（直接入金）
+    // ない場合は運営アカウントで作成（後で手動送金）
+    const stripeOptions = isConnected && connectedAccountId
+      ? { stripeAccount: connectedAccountId }
+      : {};
+
     // Stripe Product 作成
-    const product = await stripe.products.create({
-      name: item.title,
-      description: item.description ?? undefined,
-      metadata: {
-        return_item_id: item.id,
-        driver_id: item.driver_id,
-      },
-    });
-
-    // Stripe Price 作成
-    const price = await stripe.prices.create({
-      product: product.id,
-      unit_amount: item.price * 100, // 円 → 銭（Stripeは最小単位）
-      currency: "jpy",
-      ...(item.billing_type === "monthly"
-        ? { recurring: { interval: "month" } }
-        : {}),
-    });
-
-    // Payment Link 作成
-    const paymentLink = await stripe.paymentLinks.create({
-      line_items: [{ price: price.id, quantity: 1 }],
-      metadata: {
-        return_item_id: item.id,
-        driver_id: item.driver_id,
-      },
-      after_completion: {
-        type: "redirect",
-        redirect: {
-          url: `${Deno.env.get("APP_URL") ?? "https://driverfund-app.vercel.app"}/payment-success?item=${item.id}`,
+    const product = await stripe.products.create(
+      {
+        name: item.title,
+        description: item.description ?? undefined,
+        metadata: {
+          return_item_id: item.id,
+          driver_id: item.driver_id,
         },
       },
-    });
+      stripeOptions
+    );
+
+    // Stripe Price 作成
+    const price = await stripe.prices.create(
+      {
+        product: product.id,
+        unit_amount: item.price, // JPYは最小単位が円なので変換不要
+        currency: "jpy",
+        ...(item.billing_type === "monthly"
+          ? { recurring: { interval: "month" } }
+          : {}),
+      },
+      stripeOptions
+    );
+
+    // Payment Link 作成
+    const paymentLink = await stripe.paymentLinks.create(
+      {
+        line_items: [{ price: price.id, quantity: 1 }],
+        metadata: {
+          return_item_id: item.id,
+          driver_id: item.driver_id,
+        },
+        after_completion: {
+          type: "redirect",
+          redirect: {
+            url: `${Deno.env.get("APP_URL") ?? "https://driverfund-app.vercel.app"}/payment-success?item=${item.id}`,
+          },
+        },
+      },
+      stripeOptions
+    );
 
     // DBに保存
     await supabase

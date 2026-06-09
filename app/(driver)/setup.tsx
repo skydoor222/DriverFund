@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, Alert, Image, ActivityIndicator,
+  ScrollView, Alert, Image, ActivityIndicator, Linking,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../../lib/supabase";
@@ -25,6 +25,9 @@ export default function SetupScreen() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [driverId, setDriverId] = useState<string | null>(null);
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
+  const [stripeConnected, setStripeConnected] = useState(false);
+  const [connectingStripe, setConnectingStripe] = useState(false);
 
   // 基本
   const [catchphrase, setCatchphrase] = useState("");
@@ -67,6 +70,8 @@ export default function SetupScreen() {
 
     if (data) {
       setDriverId(data.id);
+      setStripeAccountId(data.stripe_account_id ?? null);
+      setStripeConnected(data.stripe_onboarding_complete ?? false);
       setCatchphrase(data.catchphrase ?? "");
       setHometown(data.hometown ?? "");
       setAge(data.age?.toString() ?? "");
@@ -120,6 +125,42 @@ export default function SetupScreen() {
     if (!error) {
       const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
       setAvatarUrl(data.publicUrl);
+    }
+  }
+
+  async function handleConnectStripe() {
+    if (!driverId) {
+      Alert.alert("先にプロフィールを保存してください");
+      return;
+    }
+    setConnectingStripe(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-connect-account`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            driver_id: driverId,
+            return_url: "https://driverfund-app.vercel.app",
+          }),
+        }
+      );
+      const result = await res.json();
+      if (result.url) {
+        await Linking.openURL(result.url);
+        setStripeAccountId(result.account_id);
+      } else {
+        Alert.alert("エラー", result.error ?? "Stripe連携に失敗しました");
+      }
+    } catch (e: any) {
+      Alert.alert("エラー", e.message);
+    } finally {
+      setConnectingStripe(false);
     }
   }
 
@@ -304,6 +345,37 @@ export default function SetupScreen() {
       <Field label="今シーズンの目標" value={goal} onChange={setGoal}
         placeholder="シリーズランキングTOP5入り" multiline />
 
+      {/* ── Stripe 連携 ── */}
+      <SectionHeader label="支払い受け取り設定" note="Stripeと連携すると支援金があなたの口座に直接振り込まれます" />
+      <View style={styles.stripeCard}>
+        {stripeConnected ? (
+          <View style={styles.stripeConnected}>
+            <View style={styles.stripeCheckMark} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stripeConnectedTitle}>Stripe連携済み</Text>
+              <Text style={styles.stripeConnectedSub}>支援金があなたの口座に直接入金されます</Text>
+            </View>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.stripeDesc}>
+              {stripeAccountId
+                ? "オンボーディングが未完了です。引き続き設定を完了してください。"
+                : "銀行口座を登録すると、支援金が直接あなたの口座に振り込まれます。Stripeの安全な画面で入力します。"}
+            </Text>
+            <TouchableOpacity
+              style={[styles.stripeBtn, connectingStripe && styles.btnDisabled]}
+              onPress={handleConnectStripe}
+              disabled={connectingStripe}
+            >
+              <Text style={styles.stripeBtnText}>
+                {connectingStripe ? "接続中..." : stripeAccountId ? "設定を続ける" : "Stripeで受け取り設定"}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
       {/* ── SNS ── */}
       <SectionHeader label="SNS" />
       <Field label="X (Twitter)" value={snsX} onChange={setSnsX} placeholder="@username" />
@@ -423,4 +495,23 @@ const styles = StyleSheet.create({
   },
   publishBtnText: { color: T.white, fontSize: 14, fontWeight: "800" },
   btnDisabled: { opacity: 0.5 },
+
+  // Stripe
+  stripeCard: {
+    backgroundColor: T.dark3, borderRadius: 14, padding: 16,
+    marginTop: 14, borderWidth: 1, borderColor: T.gray5,
+  },
+  stripeDesc: { fontSize: 13, color: T.gray3, lineHeight: 20, marginBottom: 14 },
+  stripeBtn: {
+    backgroundColor: "#635BFF", borderRadius: 10,
+    paddingVertical: 13, alignItems: "center",
+  },
+  stripeBtnText: { color: T.white, fontSize: 14, fontWeight: "700" },
+  stripeConnected: { flexDirection: "row", alignItems: "center", gap: 12 },
+  stripeCheckMark: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: "#22C55E", opacity: 0.9,
+  },
+  stripeConnectedTitle: { fontSize: 14, fontWeight: "700", color: T.white },
+  stripeConnectedSub: { fontSize: 12, color: T.gray3, marginTop: 2 },
 });

@@ -107,6 +107,19 @@ Deno.serve(async (req) => {
           .eq("stripe_subscription_id", sub.id);
         break;
       }
+
+      // ── Connectアカウント オンボーディング完了 ──
+      case "account.updated": {
+        const account = event.data.object as Stripe.Account;
+        // charges_enabled = true になったらオンボーディング完了
+        if (account.charges_enabled) {
+          await supabase
+            .from("drivers")
+            .update({ stripe_onboarding_complete: true })
+            .eq("stripe_account_id", account.id);
+        }
+        break;
+      }
     }
 
     return new Response("ok", { status: 200 });

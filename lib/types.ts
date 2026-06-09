@@ -57,6 +57,9 @@ export interface Driver {
   series_rank?: number;        // 今季シリーズ順位
   team_rank?: number;          // 今季チーム順位
   total_points?: number;       // 今季獲得ポイント合計
+  // Stripe Connect
+  stripe_account_id?: string;
+  stripe_onboarding_complete?: boolean;
 }
 
 // レース結果1行の型
