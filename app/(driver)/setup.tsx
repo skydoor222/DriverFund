@@ -4,6 +4,7 @@ import {
   ScrollView, Alert, Image, ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { RacingCategory } from "../../lib/types";
@@ -22,6 +23,7 @@ const CATEGORIES: { value: RacingCategory; label: string }[] = [
 
 export default function SetupScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [driverId, setDriverId] = useState<string | null>(null);
@@ -147,18 +149,24 @@ export default function SetupScreen() {
     };
 
     let error;
+    let isNew = false;
     if (driverId) {
       ({ error } = await supabase.from("drivers").update(payload).eq("id", driverId));
     } else {
       const { data, error: e } = await supabase.from("drivers").insert(payload).select().single();
-      if (data) setDriverId(data.id);
+      if (data) { setDriverId(data.id); isNew = true; }
       error = e;
     }
     setSaving(false);
     if (error) Alert.alert("エラー", error.message);
     else {
       if (publish) setIsPublished(true);
-      Alert.alert("保存しました", publish ? "プロフィールを公開しました！" : "下書きを保存しました");
+      if (isNew || publish) {
+        // 初回保存 or 公開時はダッシュボードへ移動
+        router.replace("/(driver)/dashboard");
+      } else {
+        Alert.alert("保存しました", "下書きを保存しました");
+      }
     }
   }
 

@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, KeyboardAvoidingView, Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 
@@ -23,6 +23,8 @@ const T = {
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { role: roleParam } = useLocalSearchParams<{ role?: string }>();
+  const role = roleParam === "driver" ? "driver" : "supporter";
   const { signInWithGoogle } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,12 +54,24 @@ export default function SignupScreen() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, role: "supporter" } },
+      options: { data: { full_name: fullName, role } },
     });
     setLoading(false);
     if (error) { setError(error.message); return; }
     if (data.session) {
-      router.replace("/(supporter)/discover");
+      // profileをupsert（auth triggerが遅い場合の保険）
+      await supabase.from("profiles").upsert({
+        id: data.session.user.id,
+        full_name: fullName,
+        email,
+        role,
+      }, { onConflict: "id" });
+
+      if (role === "driver") {
+        router.replace("/(driver)/setup");
+      } else {
+        router.replace("/(supporter)/discover");
+      }
     } else {
       setError("確認メールを送信しました。メールを確認してください。");
     }
@@ -80,8 +94,17 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.titleBlock}>
-          <Text style={styles.title}>アカウント作成</Text>
-          <Text style={styles.subtitle}>ドライバーを応援するアカウントを作成します</Text>
+          <Text style={styles.title}>{role === "driver" ? "ドライバー登録" : "アカウント作成"}</Text>
+          <Text style={styles.subtitle}>
+            {role === "driver"
+              ? "🏎  ドライバーとしてページを作成します"
+              : "ドライバーを応援するアカウントを作成します"}
+          </Text>
+          {role === "driver" && (
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>DRIVER</Text>
+            </View>
+          )}
         </View>
 
         {/* Google signup */}
@@ -131,7 +154,9 @@ export default function SignupScreen() {
           onPress={handleSignup}
           disabled={loading}
         >
-          <Text style={styles.btnText}>{loading ? "登録中..." : "登録する"}</Text>
+          <Text style={styles.btnText}>
+            {loading ? "登録中..." : role === "driver" ? "ドライバー登録する" : "登録する"}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
@@ -155,6 +180,11 @@ const styles = StyleSheet.create({
   titleBlock: { alignItems: "center", marginBottom: 28 },
   title: { fontSize: 26, fontWeight: "900", color: T.white, marginBottom: 8, letterSpacing: 0.5 },
   subtitle: { fontSize: 13, color: T.gray3, textAlign: "center" },
+  roleBadge: {
+    marginTop: 10, backgroundColor: T.red, borderRadius: 6,
+    paddingVertical: 3, paddingHorizontal: 10, alignSelf: "center",
+  },
+  roleBadgeText: { color: T.white, fontSize: 10, fontWeight: "800", letterSpacing: 2 },
   googleBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
     borderWidth: 1, borderColor: T.gray5, borderRadius: 12,

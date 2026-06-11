@@ -88,11 +88,19 @@ export default function WelcomeScreen() {
       <View style={styles.buttons}>
         <TouchableOpacity
           style={styles.primaryBtn}
-          onPress={() => router.push("/(auth)/signup")}
+          onPress={() => router.push({ pathname: "/(auth)/signup", params: { role: "supporter" } })}
           activeOpacity={0.85}
         >
           <Text style={styles.primaryBtnText}>ドライバーを応援する</Text>
           <Text style={styles.primaryBtnArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.driverBtn}
+          onPress={() => router.push({ pathname: "/(auth)/signup", params: { role: "driver" } })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.driverBtnText}>🏎  ドライバーとして登録</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -254,6 +262,16 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.7)",
     fontSize: 18,
     fontWeight: "700",
+  },
+  driverBtn: {
+    alignSelf: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  driverBtnText: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 12,
+    fontWeight: "500",
   },
   ghostBtn: {
     borderWidth: 1,
