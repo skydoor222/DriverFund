@@ -120,15 +120,18 @@ export default function DriverProfilePage() {
           },
           body: JSON.stringify({ return_item_id: selectedItem.id }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+          throw new Error(data.error ?? "決済の準備に失敗しました。時間をおいて再度お試しください。");
+        }
         paymentUrl = data.url;
       }
 
       if (paymentUrl) {
         setSelectedItem(null);
-        Linking.openURL(paymentUrl);
+        await Linking.openURL(paymentUrl);
       } else {
-        Alert.alert("エラー", "決済リンクの取得に失敗しました");
+        Alert.alert("決済を準備中です", "このドライバーの決済設定がまだ完了していません。しばらくお待ちください。");
       }
     } catch (err: any) {
       Alert.alert("エラー", err.message ?? "決済リンクの取得に失敗しました");

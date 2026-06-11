@@ -1,59 +1,31 @@
 import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Alert, ActivityIndicator,
+  Modal, Alert, ActivityIndicator, Image, Pressable, Switch,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { ReturnItem, ReturnItemCategory, BillingType } from "../../lib/types";
+import { colors, radius, spacing, typography, shadow } from "../../lib/theme";
+import { Button, Input, SegmentedControl, Pill, CoverUpload } from "../../components/ui";
 
-const T = {
-  red: "#E8002D",
-  yellow: "#FFB800",
-  dark: "#0A0A0A",
-  dark3: "#1E1E1E",
-  gray2: "#555",
-  gray3: "#888",
-  gray4: "#BDBDBD",
-  gray5: "#E8E8E8",
-  bg: "#F5F5F5",
-  white: "#FFFFFF",
-  blue: "#0058CC",
-};
-
-const CATEGORY_OPTIONS: { value: ReturnItemCategory; label: string; emoji: string }[] = [
-  { value: "report", label: "活動報告", emoji: "📩" },
-  { value: "goods", label: "サイン入りグッズ", emoji: "✍" },
-  { value: "pit", label: "ピット見学", emoji: "🏎" },
-  { value: "part", label: "マシンパーツ", emoji: "🔧" },
-  { value: "experience", label: "体験", emoji: "🏁" },
-  { value: "logo_machine", label: "マシンロゴ", emoji: "🚀" },
-  { value: "logo_suit", label: "スーツロゴ", emoji: "👕" },
-  { value: "logo_helmet", label: "ヘルメットロゴ", emoji: "🪖" },
+const CATEGORY_OPTIONS: { value: ReturnItemCategory; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: "report", label: "活動報告", icon: "mail-outline" },
+  { value: "goods", label: "グッズ", icon: "shirt-outline" },
+  { value: "pit", label: "ピット見学", icon: "eye-outline" },
+  { value: "part", label: "パーツ", icon: "build-outline" },
+  { value: "experience", label: "体験", icon: "flag-outline" },
+  { value: "logo_machine", label: "マシンロゴ", icon: "car-sport-outline" },
+  { value: "logo_suit", label: "スーツロゴ", icon: "body-outline" },
+  { value: "logo_helmet", label: "ヘルメット", icon: "shield-outline" },
 ];
 
 const PRICE_SUGGESTIONS: Record<ReturnItemCategory, number[]> = {
-  report: [3000, 5000],
-  goods: [5000, 10000],
-  pit: [30000, 50000],
-  part: [100000, 200000],
-  experience: [150000, 200000],
-  logo_machine: [200000, 500000],
-  logo_suit: [50000, 100000],
-  logo_helmet: [30000, 80000],
+  report: [1000, 3000], goods: [5000, 10000], pit: [30000, 50000],
+  part: [100000, 200000], experience: [150000, 200000],
+  logo_machine: [200000, 500000], logo_suit: [50000, 100000], logo_helmet: [30000, 80000],
 };
-
-function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
-  return (
-    <TouchableOpacity
-      onPress={onChange}
-      style={[styles.toggle, { backgroundColor: value ? T.red : T.gray5 }]}
-      activeOpacity={0.8}
-    >
-      <View style={[styles.toggleThumb, { left: value ? 20 : 2 }]} />
-    </TouchableOpacity>
-  );
-}
 
 export default function ReturnsScreen() {
   const { user } = useAuth();
@@ -66,7 +38,7 @@ export default function ReturnsScreen() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [category, setCategory] = useState<ReturnItemCategory>("report");
   const [price, setPrice] = useState("");
   const [quantityLimit, setQuantityLimit] = useState("");
@@ -87,7 +59,7 @@ export default function ReturnsScreen() {
 
   function openCreate() {
     setEditingId(null);
-    setTitle(""); setDescription(""); setImageUrl(""); setCategory("report");
+    setTitle(""); setDescription(""); setImageUrl(null); setCategory("report");
     setPrice(""); setQuantityLimit(""); setBillingType("monthly");
     setModalVisible(true);
   }
@@ -95,7 +67,7 @@ export default function ReturnsScreen() {
   function openEdit(item: ReturnItem) {
     setEditingId(item.id);
     setTitle(item.title); setDescription(item.description ?? "");
-    setImageUrl(item.image_url ?? "");
+    setImageUrl(item.image_url ?? null);
     setCategory(item.category); setPrice(item.price.toString());
     setQuantityLimit(item.quantity_limit?.toString() ?? "");
     setBillingType(item.billing_type);
@@ -104,19 +76,19 @@ export default function ReturnsScreen() {
 
   async function handleSave() {
     if (!title || !price || !driverId) {
-      Alert.alert("エラー", "タイトルと価格を入力してください");
+      Alert.alert("入力エラー", "タイトルと価格を入力してください");
       return;
     }
     setSaving(true);
     const ql = quantityLimit ? parseInt(quantityLimit) : null;
-    const payload = {
+    const payload: any = {
       driver_id: driverId, title, description,
-      image_url: imageUrl || null,
-      category,
+      image_url: imageUrl || null, category,
       price: parseInt(price), quantity_limit: ql,
-      remaining: editingId ? undefined : ql,
       billing_type: billingType, is_active: true,
     };
+    if (!editingId) payload.remaining = ql;
+
     let error;
     if (editingId) {
       ({ error } = await supabase.from("return_items").update(payload).eq("id", editingId));
@@ -134,249 +106,229 @@ export default function ReturnsScreen() {
     loadData();
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={T.red} /></View>;
+  async function handleDelete() {
+    if (!editingId) return;
+    Alert.alert("削除しますか？", "このお返しを削除します。元に戻せません。", [
+      { text: "キャンセル", style: "cancel" },
+      {
+        text: "削除", style: "destructive",
+        onPress: async () => {
+          await supabase.from("return_items").delete().eq("id", editingId);
+          setModalVisible(false);
+          loadData();
+        },
+      },
+    ]);
+  }
+
+  if (loading) return <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>;
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Header */}
+    <View style={{ flex: 1, backgroundColor: colors.bgGrouped }}>
       <View style={styles.header}>
-        <Text style={styles.title}>お返し管理</Text>
+        <Text style={styles.headerTitle}>お返し管理</Text>
+        <Text style={styles.headerSub}>支援者へのリターンメニューを設定します</Text>
       </View>
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         {!driverId && (
-          <Text style={styles.empty}>先にプロフィールを設定してください</Text>
+          <View style={styles.emptyBox}>
+            <Ionicons name="person-circle-outline" size={40} color={colors.labelTertiary} />
+            <Text style={styles.emptyText}>先にプロフィールを設定してください</Text>
+          </View>
         )}
 
         {items.map((item) => {
           const cat = CATEGORY_OPTIONS.find((c) => c.value === item.category);
           const isMonthly = item.billing_type === "monthly";
           return (
-            <TouchableOpacity key={item.id} style={styles.itemCard} onPress={() => openEdit(item)}>
-              <View style={styles.itemEmojiBox}>
-                <Text style={{ fontSize: 22 }}>{cat?.emoji ?? "🎁"}</Text>
-              </View>
+            <Pressable key={item.id} onPress={() => openEdit(item)}
+              style={({ pressed }) => [styles.itemCard, pressed && { opacity: 0.95 }]}>
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.itemThumb} />
+              ) : (
+                <View style={styles.itemThumbEmpty}>
+                  <Ionicons name={cat?.icon ?? "gift-outline"} size={22} color={colors.labelTertiary} />
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <View style={styles.itemTitleRow}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  <View style={[styles.billingBadge, { backgroundColor: isMonthly ? "#EEF3FF" : T.bg, borderColor: (isMonthly ? T.blue : T.gray2) + "33" }]}>
-                    <Text style={[styles.billingBadgeText, { color: isMonthly ? T.blue : T.gray2 }]}>
-                      {isMonthly ? "月次" : "単発"}
-                    </Text>
-                  </View>
+                  <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
+                  <Pill label={isMonthly ? "月額" : "単発"} tone={isMonthly ? "info" : "neutral"} />
                 </View>
                 <Text style={styles.itemPrice}>
                   ¥{item.price.toLocaleString()}{isMonthly ? "/月" : ""}
-                  {item.quantity_limit ? ` | 残り${item.remaining ?? item.quantity_limit}枠` : ""}
+                  {item.quantity_limit ? `  ·  残り${item.remaining ?? item.quantity_limit}枠` : ""}
                 </Text>
                 {item.description ? (
-                  <Text style={styles.itemDesc} numberOfLines={2}>{item.description}</Text>
+                  <Text style={styles.itemDesc} numberOfLines={1}>{item.description}</Text>
                 ) : null}
               </View>
-              <View style={styles.itemActions}>
-                <TouchableOpacity
-                  style={styles.editBtn}
-                  onPress={() => openEdit(item)}
-                >
-                  <Text style={styles.editBtnText}>編集</Text>
-                </TouchableOpacity>
-                <Toggle value={item.is_active} onChange={() => toggleActive(item)} />
-              </View>
-            </TouchableOpacity>
+              <Switch
+                value={item.is_active}
+                onValueChange={() => toggleActive(item)}
+                trackColor={{ true: colors.brand, false: colors.borderStrong }}
+                thumbColor={colors.white}
+              />
+            </Pressable>
           );
         })}
 
         {items.length === 0 && driverId && (
-          <Text style={styles.empty}>まだお返しがありません。＋ボタンから追加しましょう</Text>
+          <View style={styles.emptyBox}>
+            <Ionicons name="gift-outline" size={40} color={colors.labelTertiary} />
+            <Text style={styles.emptyText}>まだお返しがありません</Text>
+            <Text style={styles.emptySubText}>＋ボタンから最初のお返しを追加しましょう</Text>
+          </View>
         )}
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={openCreate}>
-        <Text style={styles.fabText}>＋</Text>
-      </TouchableOpacity>
+      {driverId && (
+        <TouchableOpacity style={styles.fab} onPress={openCreate} activeOpacity={0.85}>
+          <Ionicons name="add" size={30} color={colors.white} />
+        </TouchableOpacity>
+      )}
 
       {/* Add/Edit modal */}
-      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
-        <ScrollView style={styles.modal} contentContainerStyle={styles.modalContent}>
+      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Text style={styles.cancelText}>キャンセル</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>{editingId ? "お返しを編集" : "お返しを追加"}</Text>
             <TouchableOpacity onPress={handleSave} disabled={saving}>
-              <Text style={[styles.saveText, saving && { opacity: 0.5 }]}>
-                {saving ? "保存中" : "保存"}
-              </Text>
+              <Text style={[styles.saveText, saving && { opacity: 0.4 }]}>{saving ? "保存中" : "保存"}</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>カテゴリ</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-            {CATEGORY_OPTIONS.map((c) => (
-              <TouchableOpacity
-                key={c.value}
-                style={[styles.catChip, category === c.value && styles.catChipActive]}
-                onPress={() => {
-                  setCategory(c.value);
-                  if (!price) setPrice(PRICE_SUGGESTIONS[c.value][0].toString());
-                }}
-              >
-                <Text>{c.emoji}</Text>
-                <Text style={[styles.catChipText, category === c.value && styles.catChipTextActive]}>
-                  {c.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+            {/* 画像 */}
+            <CoverUpload
+              bucket="returns" pathPrefix={driverId ?? "tmp"} value={imageUrl}
+              onChange={setImageUrl} onError={(m) => Alert.alert("画像エラー", m)}
+              label="リターン画像" aspect={[16, 10]} height={180}
+            />
+            <View style={{ height: spacing.lg }} />
+
+            {/* カテゴリ */}
+            <Text style={styles.label}>カテゴリ</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.lg }}>
+              {CATEGORY_OPTIONS.map((c) => {
+                const active = category === c.value;
+                return (
+                  <TouchableOpacity key={c.value}
+                    style={[styles.catChip, active && styles.catChipActive]}
+                    onPress={() => {
+                      setCategory(c.value);
+                      if (!price) setPrice(PRICE_SUGGESTIONS[c.value][0].toString());
+                    }}>
+                    <Ionicons name={c.icon} size={16} color={active ? colors.brand : colors.labelTertiary} />
+                    <Text style={[styles.catChipText, active && styles.catChipTextActive]}>{c.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <Input label="タイトル *" value={title} onChangeText={setTitle} placeholder="例: 活動報告 月額配信" />
+            <Input label="説明" value={description} onChangeText={setDescription}
+              placeholder="内容の詳細..." multiline />
+
+            <Text style={styles.label}>支払いタイプ</Text>
+            <View style={{ marginBottom: spacing.lg }}>
+              <SegmentedControl
+                options={[{ value: "monthly", label: "月額" }, { value: "one_time", label: "単発" }]}
+                value={billingType} onChange={setBillingType}
+              />
+            </View>
+
+            <Input label="価格（円）*" value={price} onChangeText={setPrice}
+              keyboardType="numeric" placeholder="3000" />
+            <View style={styles.suggestionRow}>
+              {PRICE_SUGGESTIONS[category].map((p) => (
+                <TouchableOpacity key={p} style={styles.suggestion} onPress={() => setPrice(p.toString())}>
+                  <Text style={styles.suggestionText}>¥{p.toLocaleString()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Input label="提供数量上限（空白=無制限）" value={quantityLimit} onChangeText={setQuantityLimit}
+              keyboardType="numeric" placeholder="例: 5" containerStyle={{ marginTop: spacing.lg }} />
+
+            {editingId && (
+              <Button title="このお返しを削除" variant="danger" icon="trash-outline"
+                onPress={handleDelete} style={{ marginTop: spacing.lg }} />
+            )}
+            <View style={{ height: 40 }} />
           </ScrollView>
-
-          <Text style={styles.label}>タイトル *</Text>
-          <TextInput
-            style={styles.input} value={title} onChangeText={setTitle}
-            placeholder="例: 活動報告 月額配信" placeholderTextColor={T.gray3}
-          />
-
-          <Text style={styles.label}>説明</Text>
-          <TextInput
-            style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
-            value={description} onChangeText={setDescription}
-            placeholder="内容の詳細..." multiline placeholderTextColor={T.gray3}
-          />
-
-          <Text style={styles.label}>リターン画像URL（任意）</Text>
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.imagePreview} />
-          ) : null}
-          <TextInput
-            style={styles.input} value={imageUrl} onChangeText={setImageUrl}
-            placeholder="https://... (画像のURL)" placeholderTextColor={T.gray3}
-            autoCapitalize="none" keyboardType="url"
-          />
-          <Text style={styles.imageHint}>
-            ※ Supabase StorageやImgurなどにアップした画像のURLを貼り付けてください
-          </Text>
-
-          <Text style={styles.label}>月額 / 単発</Text>
-          <View style={styles.billingRow}>
-            {(["monthly", "one_time"] as BillingType[]).map((b) => (
-              <TouchableOpacity
-                key={b}
-                style={[styles.billingBtn, billingType === b && styles.billingBtnActive]}
-                onPress={() => setBillingType(b)}
-              >
-                <Text style={[styles.billingText, billingType === b && styles.billingTextActive]}>
-                  {b === "monthly" ? "月額" : "単発"}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.label}>価格（円） *</Text>
-          <TextInput
-            style={styles.input} value={price} onChangeText={setPrice}
-            keyboardType="numeric" placeholder="3000" placeholderTextColor={T.gray3}
-          />
-          <View style={styles.suggestionRow}>
-            {PRICE_SUGGESTIONS[category].map((p) => (
-              <TouchableOpacity key={p} style={styles.suggestion} onPress={() => setPrice(p.toString())}>
-                <Text style={styles.suggestionText}>¥{p.toLocaleString()}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.label}>提供数量上限（空白=無制限）</Text>
-          <TextInput
-            style={styles.input} value={quantityLimit} onChangeText={setQuantityLimit}
-            keyboardType="numeric" placeholder="例: 5" placeholderTextColor={T.gray3}
-          />
-        </ScrollView>
+        </View>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.bg },
-  content: { padding: 16, paddingBottom: 100 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg },
   header: {
-    backgroundColor: T.white, paddingHorizontal: 20, paddingTop: 56, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: T.gray5,
+    backgroundColor: colors.bg, paddingHorizontal: spacing.xl, paddingTop: 56, paddingBottom: spacing.lg,
+    borderBottomWidth: 1, borderBottomColor: colors.separator,
   },
-  title: { fontSize: 17, fontWeight: "900", color: T.dark },
-  empty: { color: T.gray3, textAlign: "center", marginTop: 40, fontSize: 15 },
+  headerTitle: { ...typography.title2, color: colors.label },
+  headerSub: { ...typography.footnote, color: colors.labelTertiary, marginTop: 3 },
+  content: { padding: spacing.lg, paddingBottom: 120 },
+
+  emptyBox: { alignItems: "center", paddingTop: 70, gap: 10 },
+  emptyText: { ...typography.callout, color: colors.labelSecondary, fontWeight: "600" },
+  emptySubText: { ...typography.footnote, color: colors.labelTertiary },
+
   itemCard: {
-    backgroundColor: T.white, borderRadius: 14, padding: 14, marginBottom: 10,
-    flexDirection: "row", alignItems: "center", gap: 12,
-    borderWidth: 1, borderColor: T.gray5,
-    shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+    backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md,
+    flexDirection: "row", alignItems: "center", gap: spacing.md, ...shadow.sm,
   },
-  itemEmojiBox: {
-    width: 44, height: 44, backgroundColor: T.bg, borderRadius: 10,
-    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  itemThumb: { width: 52, height: 52, borderRadius: radius.md },
+  itemThumbEmpty: {
+    width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.bgGrouped,
+    alignItems: "center", justifyContent: "center",
   },
-  itemTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 3 },
-  itemTitle: { fontSize: 14, fontWeight: "800", color: T.dark, flexShrink: 1 },
-  billingBadge: {
-    borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6, borderWidth: 1,
-  },
-  billingBadgeText: { fontSize: 9, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
-  itemPrice: { fontSize: 14, fontWeight: "700", color: T.dark, letterSpacing: 0.5 },
-  itemDesc: { fontSize: 12, color: T.gray2, marginTop: 4 },
-  itemActions: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 },
-  editBtn: {
-    backgroundColor: T.bg, borderWidth: 1, borderColor: T.gray5,
-    borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10,
-  },
-  editBtnText: { fontSize: 11, color: T.gray2 },
-  toggle: {
-    width: 40, height: 22, borderRadius: 11, position: "relative",
-  },
-  toggleThumb: {
-    position: "absolute", top: 2, width: 18, height: 18, borderRadius: 9,
-    backgroundColor: T.white, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 2, elevation: 2,
-  },
+  itemTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: 3 },
+  itemTitle: { ...typography.subhead, fontWeight: "700", color: colors.label, flexShrink: 1 },
+  itemPrice: { ...typography.subhead, fontWeight: "700", color: colors.label },
+  itemDesc: { ...typography.caption, color: colors.labelTertiary, marginTop: 3 },
+
   fab: {
-    position: "absolute", bottom: 80, right: 20,
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: T.red, alignItems: "center", justifyContent: "center",
-    shadowColor: T.red, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6,
+    position: "absolute", bottom: 28, right: 22,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand,
+    alignItems: "center", justifyContent: "center", ...shadow.brand,
   },
-  fabText: { color: T.white, fontSize: 24, lineHeight: 28 },
-  modal: { flex: 1, backgroundColor: T.white },
-  modalContent: { padding: 20, paddingBottom: 60, gap: 4 },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
-  modalTitle: { fontSize: 17, fontWeight: "700", color: T.dark },
-  cancelText: { color: T.gray2, fontSize: 15 },
-  saveText: { color: T.red, fontSize: 15, fontWeight: "700" },
-  label: { fontSize: 13, fontWeight: "600", color: T.dark, marginTop: 12, marginBottom: 4 },
-  input: {
-    borderWidth: 1, borderColor: T.gray5, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: T.dark,
+
+  modalContainer: { flex: 1, backgroundColor: colors.bg },
+  modalHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: spacing.xl, paddingVertical: spacing.lg,
+    borderBottomWidth: 1, borderBottomColor: colors.separator,
   },
-  catScroll: { marginTop: 4 },
+  modalTitle: { ...typography.headline, color: colors.label },
+  cancelText: { ...typography.body, color: colors.labelTertiary },
+  saveText: { ...typography.body, color: colors.brand, fontWeight: "700" },
+  modalContent: { padding: spacing.xl },
+
+  label: { ...typography.footnote, fontWeight: "600", color: colors.labelSecondary, marginBottom: 7 },
   catChip: {
-    borderWidth: 1, borderColor: T.gray5, borderRadius: 20,
-    paddingVertical: 8, paddingHorizontal: 14, marginRight: 8, alignItems: "center",
-    flexDirection: "row", gap: 6,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill,
+    paddingVertical: 8, paddingHorizontal: 14, backgroundColor: colors.surface,
   },
-  catChipActive: { borderColor: T.red, backgroundColor: "#FFF0F3" },
-  catChipText: { fontSize: 13, color: T.gray2 },
-  catChipTextActive: { color: T.red, fontWeight: "600" },
-  billingRow: { flexDirection: "row", gap: 10, marginTop: 4 },
-  billingBtn: {
-    flex: 1, borderWidth: 1, borderColor: T.gray5,
-    borderRadius: 10, paddingVertical: 12, alignItems: "center",
-  },
-  billingBtnActive: { borderColor: T.red, backgroundColor: "#FFF0F3" },
-  billingText: { color: T.gray2, fontWeight: "600" },
-  billingTextActive: { color: T.red },
-  suggestionRow: { flexDirection: "row", gap: 8, marginTop: 6 },
+  catChipActive: { borderColor: colors.brand, backgroundColor: colors.brandTint },
+  catChipText: { ...typography.footnote, color: colors.labelSecondary },
+  catChipTextActive: { color: colors.brand, fontWeight: "700" },
+
+  suggestionRow: { flexDirection: "row", gap: spacing.sm, marginTop: -spacing.sm },
   suggestion: {
-    borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
-    paddingVertical: 6, paddingHorizontal: 12,
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm,
+    paddingVertical: 6, paddingHorizontal: 12, backgroundColor: colors.surfaceAlt,
   },
-  suggestionText: { color: T.gray2, fontSize: 13 },
-  imagePreview: { width: "100%", height: 160, borderRadius: 10, resizeMode: "cover", marginBottom: 8 },
-  imageHint: { fontSize: 11, color: T.gray3, marginTop: 4, lineHeight: 16 },
+  suggestionText: { ...typography.footnote, color: colors.labelSecondary, fontWeight: "600" },
 });

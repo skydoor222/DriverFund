@@ -1,36 +1,21 @@
 import { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Share,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { Driver, Sponsorship } from "../../lib/types";
-
-const T = {
-  red: "#E8002D",
-  dark: "#0A0A0A",
-  dark2: "#141414",
-  dark3: "#1E1E1E",
-  gray1: "#222",
-  gray2: "#555",
-  gray3: "#888",
-  gray4: "#BDBDBD",
-  gray5: "#E8E8E8",
-  bg: "#F5F5F5",
-  white: "#FFFFFF",
-};
-
-const BAR_HEIGHTS = [60, 45, 72, 55, 80, 65, 90];
+import { colors, radius, spacing, typography, shadow } from "../../lib/theme";
+import { Card } from "../../components/ui";
 
 export default function DriverDashboard() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile } = useAuth();
   const router = useRouter();
   const [driver, setDriver] = useState<Driver | null>(null);
   const [sponsorships, setSponsorships] = useState<Sponsorship[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("ホーム");
 
   useEffect(() => { if (user) loadData(); }, [user]);
 
@@ -52,7 +37,7 @@ export default function DriverDashboard() {
   async function shareProfile() {
     if (!driver) return;
     await Share.share({
-      message: `DriverFundで私を応援してください！\n\nhttps://driverfund.app/driver/${driver.id}`,
+      message: `DriverFundで私を応援してください！\n\nhttps://driverfund-app.vercel.app/driver/${driver.id}`,
       title: `${profile?.full_name}のドライバーページ`,
     });
   }
@@ -65,242 +50,177 @@ export default function DriverDashboard() {
     .reduce((sum, s) => sum + (s.amount ?? 0), 0);
   const total = monthlyTotal + oneTimeTotal;
 
-  const initials = (profile?.full_name ?? "?").split(" ").map((p: string) => p[0]).join("").slice(0, 2).toUpperCase();
-
-  if (loading) return <View style={styles.center}><ActivityIndicator color={T.red} /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>;
 
   return (
-    <View style={styles.container}>
-      {/* Dark header */}
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.logoText}>DriverFund</Text>
-          <View style={styles.avatarSmall}>
-            <Text style={styles.avatarSmallText}>{initials}</Text>
-          </View>
-        </View>
+        <Text style={styles.eyebrow}>こんにちは、{profile?.full_name ?? "ドライバー"}さん</Text>
+        <Text style={styles.pageTitle}>ダッシュボード</Text>
+      </View>
 
-        <Text style={styles.headerLabel}>今月の支援総額</Text>
-        <Text style={styles.totalAmount}>
-          ¥{total > 0 ? total.toLocaleString() : "0"}
-        </Text>
-
-        <View style={styles.subStats}>
-          <View style={styles.subStat}>
-            <Text style={styles.subStatValue}>{sponsorships.length}名</Text>
-            <Text style={styles.subStatLabel}>応援者数</Text>
+      {/* 収益サマリーカード */}
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryLabel}>今月の支援総額</Text>
+        <Text style={styles.summaryAmount}>¥{total.toLocaleString()}</Text>
+        <View style={styles.summaryStats}>
+          <View style={styles.summaryStat}>
+            <Text style={styles.summaryStatValue}>{sponsorships.length}</Text>
+            <Text style={styles.summaryStatLabel}>応援者数</Text>
           </View>
-          <View style={styles.subStat}>
-            <Text style={styles.subStatValue}>¥{oneTimeTotal > 0 ? (oneTimeTotal / 1000).toFixed(0) + "K" : "0"}</Text>
-            <Text style={styles.subStatLabel}>単発収益</Text>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryStat}>
+            <Text style={styles.summaryStatValue}>¥{monthlyTotal.toLocaleString()}</Text>
+            <Text style={styles.summaryStatLabel}>月額収益</Text>
           </View>
-        </View>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.outlineBtn} onPress={shareProfile}>
-            <Text style={styles.outlineBtnText}>🔗 プロフィールを共有</Text>
-          </TouchableOpacity>
-          {driver && (
-            <TouchableOpacity
-              style={styles.redBtn}
-              onPress={() => router.push(`/driver/${driver.id}`)}
-            >
-              <Text style={styles.redBtnText}>👁 プロフィールを見る</Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryStat}>
+            <Text style={styles.summaryStatValue}>¥{oneTimeTotal.toLocaleString()}</Text>
+            <Text style={styles.summaryStatLabel}>単発収益</Text>
+          </View>
         </View>
       </View>
 
-      {/* Content */}
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
-        {/* Profile not set banner */}
+      <View style={styles.body}>
+        {/* プロフィール未設定バナー */}
         {!driver && (
-          <TouchableOpacity
-            style={styles.setupBanner}
-            onPress={() => router.push("/(driver)/setup")}
-          >
-            <Text style={styles.setupBannerTitle}>プロフィールを設定しよう</Text>
-            <Text style={styles.setupBannerSub}>設定が完了するとページが公開されます →</Text>
-          </TouchableOpacity>
+          <Card onPress={() => router.push("/(driver)/setup")} style={styles.setupBanner} elevated={false}>
+            <View style={styles.setupRow}>
+              <View style={styles.setupIcon}>
+                <Ionicons name="person-add" size={22} color={colors.white} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.setupTitle}>プロフィールを設定しよう</Text>
+                <Text style={styles.setupSub}>設定が完了するとページが公開されます</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.white} />
+            </View>
+          </Card>
         )}
 
         {driver && !driver.is_published && (
-          <View style={styles.draftBadge}>
-            <Text style={styles.draftText}>📝 下書き — プロフィール設定から公開できます</Text>
+          <Card style={styles.draftCard} elevated={false}>
+            <View style={styles.draftRow}>
+              <Ionicons name="document-text-outline" size={18} color={colors.warning} />
+              <Text style={styles.draftText}>下書き — プロフィール設定から公開できます</Text>
+            </View>
+          </Card>
+        )}
+
+        {/* クイックアクション */}
+        {driver && (
+          <View style={styles.actions}>
+            <Action icon="eye-outline" label="ページを見る" onPress={() => router.push(`/driver/${driver.id}`)} />
+            <Action icon="share-outline" label="シェア" onPress={shareProfile} />
+            <Action icon="gift-outline" label="お返し管理" onPress={() => router.push("/(driver)/returns")} />
           </View>
         )}
 
-        {/* Recent supporters */}
+        {/* 最近の応援者 */}
         {sponsorships.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>最近の応援者</Text>
-            <View style={styles.card}>
-              {sponsorships.slice(0, 5).map((s, i) => (
-                <View
-                  key={s.id}
-                  style={[styles.sponsorRow, i < Math.min(sponsorships.length, 5) - 1 && styles.sponsorRowBorder]}
-                >
+            <Card padded={false}>
+              {sponsorships.slice(0, 6).map((s, i) => (
+                <View key={s.id} style={[styles.sponsorRow, i > 0 && styles.sponsorBorder]}>
                   <View style={styles.sponsorAvatar}>
-                    <Text style={styles.sponsorAvatarText}>👤</Text>
+                    <Ionicons name="person" size={16} color={colors.labelSecondary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.sponsorName}>{s.return_item?.title ?? "応援者"}</Text>
-                    <Text style={styles.sponsorPlan}>{s.return_item?.title ?? "—"}</Text>
+                    <Text style={styles.sponsorName}>{s.return_item?.title ?? "応援"}</Text>
+                    <Text style={styles.sponsorPlan}>
+                      {s.return_item?.billing_type === "monthly" ? "月額支援" : "単発支援"}
+                    </Text>
                   </View>
                   <Text style={styles.sponsorAmount}>¥{(s.amount ?? 0).toLocaleString()}</Text>
                 </View>
               ))}
-            </View>
+            </Card>
           </>
         )}
 
-        {/* Bar chart */}
-        <Text style={styles.sectionTitle}>収益推移</Text>
-        <View style={styles.chart}>
-          {BAR_HEIGHTS.map((h, i) => (
-            <View key={i} style={styles.barWrap}>
-              <View
-                style={[
-                  styles.bar,
-                  { height: h * 0.6, backgroundColor: i === BAR_HEIGHTS.length - 1 ? T.red : T.gray5 },
-                ]}
-              />
-            </View>
-          ))}
-        </View>
-
-        {/* Action grid */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push("/(driver)/returns")}
-          >
-            <Text style={styles.actionIcon}>🎁</Text>
-            <Text style={styles.actionLabel}>お返し管理</Text>
-          </TouchableOpacity>
-          {driver && (
-            <TouchableOpacity style={styles.actionCard} onPress={shareProfile}>
-              <Text style={styles.actionIcon}>🔗</Text>
-              <Text style={styles.actionLabel}>ページをシェア</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.actionCard} onPress={signOut}>
-            <Text style={styles.actionIcon}>🚪</Text>
-            <Text style={styles.actionLabel}>ログアウト</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      {/* Bottom nav */}
-      <View style={styles.bottomNav}>
-        {[
-          { label: "ホーム", icon: "🏠" },
-          { label: "お返し", icon: "🎁", onPress: () => { setActiveTab("お返し"); router.push("/(driver)/returns"); } },
-          { label: "設定", icon: "⚙️" },
-        ].map((tab) => (
-          <TouchableOpacity
-            key={tab.label}
-            style={styles.navItem}
-            onPress={tab.onPress ?? (() => setActiveTab(tab.label))}
-          >
-            <Text style={styles.navIcon}>{tab.icon}</Text>
-            <Text style={[styles.navLabel, activeTab === tab.label && styles.navLabelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {driver && sponsorships.length === 0 && (
+          <View style={styles.emptyBox}>
+            <Ionicons name="heart-outline" size={36} color={colors.labelQuaternary} />
+            <Text style={styles.emptyText}>まだ応援者がいません</Text>
+            <Text style={styles.emptySub}>ページをシェアして応援を募りましょう</Text>
+          </View>
+        )}
       </View>
-    </View>
+    </ScrollView>
+  );
+}
+
+function Action({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.action} onPress={onPress} activeOpacity={0.8}>
+      <View style={styles.actionIcon}>
+        <Ionicons name={icon} size={22} color={colors.brand} />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.bg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, backgroundColor: colors.bgGrouped },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg },
 
-  // Dark header
-  header: { backgroundColor: T.dark, paddingHorizontal: 20, paddingTop: 56, paddingBottom: 20 },
-  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  logoText: { fontSize: 20, fontWeight: "900", color: T.white, letterSpacing: 2 },
-  avatarSmall: {
-    width: 32, height: 32, borderRadius: 16, backgroundColor: T.dark3,
+  header: { paddingHorizontal: spacing.xl, paddingTop: 56, paddingBottom: spacing.md },
+  eyebrow: { ...typography.footnote, color: colors.labelTertiary, marginBottom: 2 },
+  pageTitle: { ...typography.title1, color: colors.label },
+
+  summaryCard: {
+    backgroundColor: colors.label, marginHorizontal: spacing.lg, borderRadius: radius.xl,
+    padding: spacing.xl, ...shadow.md,
+  },
+  summaryLabel: { ...typography.footnote, color: "rgba(255,255,255,0.6)" },
+  summaryAmount: { fontSize: 40, fontWeight: "900", color: colors.white, letterSpacing: 0.5, marginTop: 4 },
+  summaryStats: { flexDirection: "row", alignItems: "center", marginTop: spacing.lg },
+  summaryStat: { flex: 1 },
+  summaryStatValue: { ...typography.headline, color: colors.white },
+  summaryStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 },
+  summaryDivider: { width: 1, height: 28, backgroundColor: "rgba(255,255,255,0.15)" },
+
+  body: { padding: spacing.lg, gap: spacing.lg },
+
+  setupBanner: { backgroundColor: colors.brand },
+  setupRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  setupIcon: {
+    width: 44, height: 44, borderRadius: radius.md, backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center", justifyContent: "center",
   },
-  avatarSmallText: { color: T.white, fontSize: 13, fontWeight: "700" },
-  headerLabel: { fontSize: 11, color: T.gray3, marginBottom: 4 },
-  totalAmount: { fontSize: 48, fontWeight: "900", color: T.white, letterSpacing: 0.5, lineHeight: 56 },
-  subStats: { flexDirection: "row", gap: 16, marginTop: 10, marginBottom: 14 },
-  subStat: { flexDirection: "row", gap: 4, alignItems: "baseline" },
-  subStatValue: { fontSize: 18, fontWeight: "800", color: T.white, letterSpacing: 0.5 },
-  subStatLabel: { fontSize: 10, color: T.gray3 },
-  headerActions: { flexDirection: "row", gap: 8 },
-  outlineBtn: {
-    flex: 1, paddingVertical: 9, borderRadius: 8,
-    borderWidth: 1, borderColor: T.gray1, alignItems: "center",
-  },
-  outlineBtnText: { color: T.gray4, fontSize: 12, fontWeight: "600" },
-  redBtn: {
-    flex: 1, paddingVertical: 9, borderRadius: 8,
-    backgroundColor: T.red, alignItems: "center",
-  },
-  redBtnText: { color: T.white, fontSize: 12, fontWeight: "700" },
+  setupTitle: { ...typography.headline, color: colors.white },
+  setupSub: { ...typography.caption, color: "rgba(255,255,255,0.85)", marginTop: 2 },
 
-  // Content
-  content: { flex: 1 },
-  setupBanner: {
-    backgroundColor: T.red, borderRadius: 14, padding: 18, margin: 16,
+  draftCard: { backgroundColor: "#FFF8EE", borderWidth: 1, borderColor: "#FFE4B8" },
+  draftRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  draftText: { ...typography.footnote, color: "#A56A00", flex: 1 },
+
+  actions: { flexDirection: "row", gap: spacing.md },
+  action: {
+    flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, paddingVertical: spacing.lg,
+    alignItems: "center", gap: spacing.sm, ...shadow.sm,
   },
-  setupBannerTitle: { color: T.white, fontSize: 16, fontWeight: "700" },
-  setupBannerSub: { color: "rgba(255,255,255,0.8)", fontSize: 13, marginTop: 4 },
-  draftBadge: {
-    backgroundColor: T.gray5, borderRadius: 10, padding: 12, margin: 16, marginBottom: 0,
+  actionIcon: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandTint,
+    alignItems: "center", justifyContent: "center",
   },
-  draftText: { fontSize: 13, color: T.gray2 },
-  sectionTitle: {
-    fontSize: 14, fontWeight: "800", color: T.dark, marginHorizontal: 16,
-    marginTop: 18, marginBottom: 10,
-  },
-  card: {
-    backgroundColor: T.white, borderRadius: 14, marginHorizontal: 16,
-    borderWidth: 1, borderColor: T.gray5,
-    shadowColor: "#000", shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
-    overflow: "hidden",
-  },
-  sponsorRow: {
-    flexDirection: "row", alignItems: "center", gap: 12, padding: 12, paddingHorizontal: 14,
-  },
-  sponsorRowBorder: { borderBottomWidth: 1, borderBottomColor: T.gray5 },
+  actionLabel: { ...typography.caption, color: colors.labelSecondary, fontWeight: "600" },
+
+  sectionTitle: { ...typography.headline, color: colors.label, marginTop: spacing.sm },
+  sponsorRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md },
+  sponsorBorder: { borderTopWidth: 1, borderTopColor: colors.separator },
   sponsorAvatar: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: T.dark,
+    width: 38, height: 38, borderRadius: 19, backgroundColor: colors.bgGrouped,
     alignItems: "center", justifyContent: "center",
   },
-  sponsorAvatarText: { fontSize: 18 },
-  sponsorName: { fontSize: 13, fontWeight: "700", color: T.dark },
-  sponsorPlan: { fontSize: 11, color: T.gray3 },
-  sponsorAmount: { fontSize: 13, fontWeight: "600", color: T.gray2 },
-  chart: {
-    backgroundColor: T.white, borderRadius: 14, marginHorizontal: 16, padding: 16,
-    borderWidth: 1, borderColor: T.gray5,
-    flexDirection: "row", alignItems: "flex-end", gap: 6, height: 100,
-    shadowColor: "#000", shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
-  },
-  barWrap: { flex: 1, alignItems: "center" },
-  bar: { width: "100%", borderRadius: 3 },
-  actions: { flexDirection: "row", gap: 10, margin: 16 },
-  actionCard: {
-    flex: 1, backgroundColor: T.white, borderRadius: 14, padding: 16, alignItems: "center",
-    shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
-  },
-  actionIcon: { fontSize: 24, marginBottom: 6 },
-  actionLabel: { fontSize: 12, color: T.dark, fontWeight: "600", textAlign: "center" },
+  sponsorName: { ...typography.subhead, fontWeight: "700", color: colors.label },
+  sponsorPlan: { ...typography.caption, color: colors.labelTertiary, marginTop: 1 },
+  sponsorAmount: { ...typography.subhead, fontWeight: "700", color: colors.label },
 
-  // Bottom nav
-  bottomNav: {
-    height: 56, backgroundColor: T.white, borderTopWidth: 1, borderTopColor: T.gray5,
-    flexDirection: "row",
-  },
-  navItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
-  navIcon: { fontSize: 18 },
-  navLabel: { fontSize: 9, fontWeight: "600", color: T.gray3 },
-  navLabelActive: { color: T.red },
+  emptyBox: { alignItems: "center", paddingVertical: 50, gap: spacing.sm },
+  emptyText: { ...typography.callout, color: colors.labelSecondary, fontWeight: "600" },
+  emptySub: { ...typography.footnote, color: colors.labelTertiary },
 });

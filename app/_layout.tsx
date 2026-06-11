@@ -66,6 +66,7 @@ function RootNavigator() {
       <Stack.Screen name="(supporter)" />
       <Stack.Screen name="auth" />
       <Stack.Screen name="driver/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="payment-success" options={{ headerShown: false }} />
       <Stack.Screen name="auth/reset-password" />
     </Stack>
   );

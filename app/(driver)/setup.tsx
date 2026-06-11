@@ -1,23 +1,18 @@
 import { useState, useEffect } from "react";
-import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, Alert, Image, ActivityIndicator,
-} from "react-native";
-import * as ImagePicker from "expo-image-picker";
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { RacingCategory } from "../../lib/types";
-
-const T = {
-  red: "#E8002D", dark: "#0A0A0A", dark2: "#111", dark3: "#1A1A1A",
-  gray1: "#222", gray3: "#888", gray5: "#2A2A2A", white: "#FFF",
-};
+import { colors, spacing, typography } from "../../lib/theme";
+import {
+  Button, Input, SegmentedControl, AvatarUpload, CoverUpload, SectionHeader,
+} from "../../components/ui";
 
 const CATEGORIES: { value: RacingCategory; label: string }[] = [
   { value: "kart", label: "カート" },
-  { value: "f4", label: "FIA-F4" },
-  { value: "sf", label: "スーパーフォーミュラ" },
+  { value: "f4", label: "F4" },
+  { value: "sf", label: "SF" },
   { value: "other", label: "その他" },
 ];
 
@@ -39,34 +34,24 @@ export default function SetupScreen() {
   const [snsX, setSnsX] = useState("");
   const [snsInstagram, setSnsInstagram] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
 
-  // 物語型ストーリー（3分割）
-  const [storyConflict, setStoryConflict] = useState("");   // 葛藤：今直面している壁
-  const [storyWhy, setStoryWhy] = useState("");             // 原点：なぜレースを続けるのか
-  const [storyNow, setStoryNow] = useState("");             // 今：今シーズンの状況
-
-  // 目標・戦績
+  // 物語型ストーリー
+  const [storyConflict, setStoryConflict] = useState("");
+  const [storyWhy, setStoryWhy] = useState("");
+  const [storyNow, setStoryNow] = useState("");
   const [goal, setGoal] = useState("");
   const [raceHistory, setRaceHistory] = useState("");
-
-  // 支援の使い道
-  const [fundUsage, setFundUsage] = useState("");           // 支援で何が変わるか
-
-  // 参戦費用（数字）
-  const [totalBudget, setTotalBudget] = useState("");       // 今シーズン総費用（万円）
-  const [currentFund, setCurrentFund] = useState("");       // 現在集まっている額（万円）
+  const [fundUsage, setFundUsage] = useState("");
+  const [totalBudget, setTotalBudget] = useState("");
+  const [currentFund, setCurrentFund] = useState("");
 
   useEffect(() => { if (user) loadDriver(); }, [user]);
 
   async function loadDriver() {
     setLoading(true);
-    const { data } = await supabase
-      .from("drivers")
-      .select("*")
-      .eq("profile_id", user!.id)
-      .single();
-
+    const { data } = await supabase.from("drivers").select("*").eq("profile_id", user!.id).single();
     if (data) {
       setDriverId(data.id);
       setCatchphrase(data.catchphrase ?? "");
@@ -79,13 +64,13 @@ export default function SetupScreen() {
       setSnsX(data.sns_x ?? "");
       setSnsInstagram(data.sns_instagram ?? "");
       setAvatarUrl(data.avatar_url ?? null);
+      setCoverUrl(data.cover_url ?? null);
       setIsPublished(data.is_published ?? false);
       setGoal(data.goal ?? "");
       setRaceHistory(data.race_history ?? "");
-      // 物語フィールド（bioをパース or そのまま）
       try {
         const parsed = data.bio ? JSON.parse(data.bio) : null;
-        if (parsed && parsed.conflict) {
+        if (parsed && parsed.conflict !== undefined) {
           setStoryConflict(parsed.conflict ?? "");
           setStoryWhy(parsed.why ?? "");
           setStoryNow(parsed.now ?? "");
@@ -93,7 +78,6 @@ export default function SetupScreen() {
           setTotalBudget(parsed.total_budget ?? "");
           setCurrentFund(parsed.current_fund ?? "");
         } else {
-          // 旧フォーマット（文字列）はそのままwhyに入れる
           setStoryWhy(data.bio ?? "");
         }
       } catch {
@@ -103,48 +87,22 @@ export default function SetupScreen() {
     setLoading(false);
   }
 
-  async function pickAvatar() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, aspect: [1, 1], quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      await uploadAvatar(result.assets[0].uri);
-    }
-  }
-
-  async function uploadAvatar(uri: string) {
-    const ext = uri.split(".").pop() ?? "jpg";
-    const fileName = `${user!.id}/avatar.${ext}`;
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const { error } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true });
-    if (!error) {
-      const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
-      setAvatarUrl(data.publicUrl);
-    }
-  }
-
   async function handleSave(publish = false) {
+    if (!user) return;
     setSaving(true);
-    // bioをJSONで保存
     const bioJson = JSON.stringify({
-      conflict: storyConflict,
-      why: storyWhy,
-      now: storyNow,
-      fund_usage: fundUsage,
-      total_budget: totalBudget,
-      current_fund: currentFund,
+      conflict: storyConflict, why: storyWhy, now: storyNow,
+      fund_usage: fundUsage, total_budget: totalBudget, current_fund: currentFund,
     });
 
     const payload = {
-      profile_id: user!.id,
+      profile_id: user.id,
       catchphrase, bio: bioJson, hometown,
       age: age ? parseInt(age) : null,
       category, series_name: seriesName, car_number: carNumber,
       team_name: teamName, race_history: raceHistory, goal,
       sns_x: snsX, sns_instagram: snsInstagram,
-      avatar_url: avatarUrl,
+      avatar_url: avatarUrl, cover_url: coverUrl,
       is_published: publish || isPublished,
     };
 
@@ -158,278 +116,126 @@ export default function SetupScreen() {
       error = e;
     }
     setSaving(false);
-    if (error) Alert.alert("エラー", error.message);
-    else {
-      if (publish) setIsPublished(true);
-      if (isNew || publish) {
-        // 初回保存 or 公開時はダッシュボードへ移動
-        router.replace("/(driver)/dashboard");
-      } else {
-        Alert.alert("保存しました", "下書きを保存しました");
-      }
+    if (error) { Alert.alert("エラー", error.message); return; }
+    if (publish) setIsPublished(true);
+    if (isNew || publish) {
+      router.replace("/(driver)/dashboard");
+    } else {
+      Alert.alert("保存しました", "下書きを保存しました");
     }
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator color={T.red} /></View>;
+  function onImgError(msg: string) { Alert.alert("画像エラー", msg); }
+
+  if (loading) return <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.pageTitle}>プロフィール設定</Text>
+      <Text style={styles.pageSub}>応援者があなたを知るための情報を入力します</Text>
 
-      {/* ── アバター ── */}
-      <TouchableOpacity style={styles.avatarSection} onPress={pickAvatar}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarPlaceholderText}>写真を追加</Text>
-          </View>
-        )}
-        <Text style={styles.avatarHint}>タップして変更</Text>
-      </TouchableOpacity>
+      {/* ── カバー＋アバター ── */}
+      <View style={styles.mediaBlock}>
+        <CoverUpload
+          bucket="covers" pathPrefix={user!.id} value={coverUrl}
+          onChange={setCoverUrl} onError={onImgError}
+          aspect={[16, 9]} height={150}
+        />
+        <View style={styles.avatarOverlap}>
+          <AvatarUpload
+            bucket="avatars" pathPrefix={user!.id} value={avatarUrl}
+            onChange={setAvatarUrl} onError={onImgError} size={92}
+          />
+        </View>
+      </View>
 
       {/* ── 基本情報 ── */}
-      <SectionHeader label="基本情報" />
-      <Field label="キャッチフレーズ" value={catchphrase} onChange={setCatchphrase}
+      <SectionHeader title="基本情報" />
+      <Input label="キャッチフレーズ" value={catchphrase} onChangeText={setCatchphrase}
         placeholder="一言で自分を表すフレーズ" />
 
       <Text style={styles.label}>カテゴリ</Text>
-      <View style={styles.categoryRow}>
-        {CATEGORIES.map((c) => (
-          <TouchableOpacity key={c.value}
-            style={[styles.catBtn, category === c.value && styles.catBtnActive]}
-            onPress={() => setCategory(c.value)}>
-            <Text style={[styles.catBtnText, category === c.value && styles.catBtnTextActive]}>{c.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={{ marginBottom: spacing.lg }}>
+        <SegmentedControl options={CATEGORIES} value={category} onChange={setCategory} />
       </View>
 
       <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Field label="シリーズ名" value={seriesName} onChange={setSeriesName} placeholder="全日本F4選手権" />
-        </View>
-        <View style={{ width: 80 }}>
-          <Field label="カーナンバー" value={carNumber} onChange={setCarNumber} placeholder="#7" />
-        </View>
+        <Input containerStyle={{ flex: 1 }} label="シリーズ名" value={seriesName}
+          onChangeText={setSeriesName} placeholder="全日本F4選手権" />
+        <Input containerStyle={{ width: 96 }} label="カーNo." value={carNumber}
+          onChangeText={setCarNumber} placeholder="7" keyboardType="numeric" />
       </View>
 
-      <Field label="チーム名" value={teamName} onChange={setTeamName} placeholder="○○ Racing" />
+      <Input label="チーム名" value={teamName} onChangeText={setTeamName} placeholder="○○ Racing" />
 
       <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Field label="出身地" value={hometown} onChange={setHometown} placeholder="東京都" />
-        </View>
-        <View style={{ width: 80 }}>
-          <Field label="年齢" value={age} onChange={setAge} placeholder="19" keyboardType="numeric" />
-        </View>
+        <Input containerStyle={{ flex: 1 }} label="出身地" value={hometown}
+          onChangeText={setHometown} placeholder="東京都" />
+        <Input containerStyle={{ width: 96 }} label="年齢" value={age}
+          onChangeText={setAge} placeholder="19" keyboardType="numeric" />
       </View>
 
-      {/* ── ストーリー（物語型） ── */}
-      <SectionHeader label="ストーリー" note="支援者が「応援したい」と感じるのはスペックではなくあなたの物語です" />
+      {/* ── ストーリー ── */}
+      <SectionHeader title="ストーリー" note="支援者が「応援したい」と感じるのはスペックではなく物語です" />
 
-      <View style={styles.storyCard}>
-        <Text style={styles.storyCardIcon}>⚡</Text>
-        <Text style={styles.storyCardTitle}>今、あなたが直面している壁</Text>
-        <Text style={styles.storyCardHint}>
-          具体的な数字や状況を書くほど刺さります{"\n"}
-          例：「今シーズンの参戦費用300万円のうち150万円が未調達」
-        </Text>
-        <TextInput
-          style={[styles.input, styles.inputMulti]}
-          value={storyConflict}
-          onChangeText={setStoryConflict}
-          placeholder="今直面している課題・壁を正直に書いてください"
-          placeholderTextColor={T.gray3}
-          multiline numberOfLines={4}
-        />
+      <Input label="⚡ 今、直面している壁" value={storyConflict} onChangeText={setStoryConflict}
+        placeholder="例：参戦費用300万円のうち150万円が未調達" multiline
+        hint="具体的な数字や状況を書くほど刺さります" />
+
+      <Input label="🔥 なぜレースを続けるのか" value={storyWhy} onChangeText={setStoryWhy}
+        placeholder="レースを始めたきっかけ、続ける理由" multiline
+        hint="原体験・諦めなかった理由を正直に" />
+
+      <Input label="📍 今シーズンの状況" value={storyNow} onChangeText={setStoryNow}
+        placeholder="現在地と次のステップ" multiline
+        hint="例：第3戦終了時点でランキング5位" />
+
+      {/* ── 資金状況 ── */}
+      <SectionHeader title="支援で何が変わるか" note="応援ボタンを押す直前に読まれる最重要セクション" />
+
+      <View style={styles.row}>
+        <Input containerStyle={{ flex: 1 }} label="今季総費用（万円）" value={totalBudget}
+          onChangeText={setTotalBudget} placeholder="300" keyboardType="numeric" />
+        <Input containerStyle={{ flex: 1 }} label="調達済み（万円）" value={currentFund}
+          onChangeText={setCurrentFund} placeholder="87" keyboardType="numeric" />
       </View>
 
-      <View style={styles.storyCard}>
-        <Text style={styles.storyCardIcon}>🔥</Text>
-        <Text style={styles.storyCardTitle}>なぜレースを続けるのか</Text>
-        <Text style={styles.storyCardHint}>
-          原体験・きっかけ・諦めなかった理由{"\n"}
-          例：「7歳のとき父に連れて行かれたカート場で…」
-        </Text>
-        <TextInput
-          style={[styles.input, styles.inputMulti]}
-          value={storyWhy}
-          onChangeText={setStoryWhy}
-          placeholder="レースを始めたきっかけ、続ける理由を教えてください"
-          placeholderTextColor={T.gray3}
-          multiline numberOfLines={5}
-        />
-      </View>
-
-      <View style={styles.storyCard}>
-        <Text style={styles.storyCardIcon}>📍</Text>
-        <Text style={styles.storyCardTitle}>今シーズンの状況</Text>
-        <Text style={styles.storyCardHint}>
-          現在地と次のステップ{"\n"}
-          例：「第3戦終了時点でランキング5位。表彰台まであと一歩」
-        </Text>
-        <TextInput
-          style={[styles.input, styles.inputMulti]}
-          value={storyNow}
-          onChangeText={setStoryNow}
-          placeholder="今シーズンの現在地・手ごたえを書いてください"
-          placeholderTextColor={T.gray3}
-          multiline numberOfLines={4}
-        />
-      </View>
-
-      {/* ── 支援の使い道 ── */}
-      <SectionHeader label="支援で何が変わるか" note="応援ボタンを押す直前に読まれる最重要セクション" />
-
-      <View style={styles.budgetRow}>
-        <View style={{ flex: 1 }}>
-          <Field label="今シーズン総費用（万円）" value={totalBudget} onChange={setTotalBudget}
-            placeholder="300" keyboardType="numeric" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Field label="現在集まっている額（万円）" value={currentFund} onChange={setCurrentFund}
-            placeholder="87" keyboardType="numeric" />
-        </View>
-      </View>
-
-      <View style={{ marginTop: 12 }}>
-        <Text style={styles.label}>支援の具体的な使い道</Text>
-        <Text style={styles.fieldHint}>月1,000円が10人集まったら何ができる？具体的に書くほど響きます</Text>
-        <TextInput
-          style={[styles.input, styles.inputMulti]}
-          value={fundUsage}
-          onChangeText={setFundUsage}
-          placeholder={"例：\n・月1,000円×10人 → タイヤ代1セット分、練習走行1回増やせる\n・月5,000円×5人 → 遠征1回分の交通費をまかなえる"}
-          placeholderTextColor={T.gray3}
-          multiline numberOfLines={5}
-        />
-      </View>
+      <Input label="支援の具体的な使い道" value={fundUsage} onChangeText={setFundUsage}
+        placeholder={"例：月1,000円×10人 → タイヤ代1セット分"} multiline
+        hint="月1,000円が10人集まったら何ができる？具体的に書くほど響きます" />
 
       {/* ── 実績・目標 ── */}
-      <SectionHeader label="実績・目標" />
-      <Field label="主な戦績" value={raceHistory} onChange={setRaceHistory}
+      <SectionHeader title="実績・目標" />
+      <Input label="主な戦績" value={raceHistory} onChangeText={setRaceHistory}
         placeholder="2024年 全日本F4第3戦 3位..." multiline />
-      <Field label="今シーズンの目標" value={goal} onChange={setGoal}
+      <Input label="今シーズンの目標" value={goal} onChangeText={setGoal}
         placeholder="シリーズランキングTOP5入り" multiline />
 
       {/* ── SNS ── */}
-      <SectionHeader label="SNS" />
-      <Field label="X (Twitter)" value={snsX} onChange={setSnsX} placeholder="@username" />
-      <Field label="Instagram" value={snsInstagram} onChange={setSnsInstagram} placeholder="@username" />
+      <SectionHeader title="SNS" />
+      <Input label="X (Twitter)" value={snsX} onChangeText={setSnsX} placeholder="@username" autoCapitalize="none" />
+      <Input label="Instagram" value={snsInstagram} onChangeText={setSnsInstagram} placeholder="@username" autoCapitalize="none" />
 
       {/* ── ボタン ── */}
       <View style={styles.btns}>
-        <TouchableOpacity style={[styles.draftBtn, saving && styles.btnDisabled]}
-          onPress={() => handleSave(false)} disabled={saving}>
-          <Text style={styles.draftBtnText}>{saving ? "保存中..." : "下書き保存"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.publishBtn, saving && styles.btnDisabled]}
-          onPress={() => handleSave(true)} disabled={saving}>
-          <Text style={styles.publishBtnText}>{isPublished ? "更新して公開" : "公開する"}</Text>
-        </TouchableOpacity>
+        <Button title="下書き保存" variant="secondary" loading={saving} onPress={() => handleSave(false)} style={{ flex: 1 }} fullWidth={false} />
+        <Button title={isPublished ? "更新して公開" : "公開する"} variant="primary" loading={saving} onPress={() => handleSave(true)} style={{ flex: 1 }} fullWidth={false} />
       </View>
     </ScrollView>
   );
 }
 
-function SectionHeader({ label, note }: { label: string; note?: string }) {
-  return (
-    <View style={styles.sectionHeader}>
-      <View style={styles.sectionAccent} />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.sectionTitle}>{label}</Text>
-        {note ? <Text style={styles.sectionNote}>{note}</Text> : null}
-      </View>
-    </View>
-  );
-}
-
-function Field({ label, value, onChange, placeholder, multiline, keyboardType }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; multiline?: boolean; keyboardType?: any;
-}) {
-  return (
-    <View style={{ marginTop: 14 }}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={[styles.input, multiline && styles.inputMulti]}
-        value={value} onChangeText={onChange}
-        placeholder={placeholder} placeholderTextColor={T.gray3}
-        multiline={multiline} numberOfLines={multiline ? 4 : 1}
-        keyboardType={keyboardType}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.dark },
-  content: { padding: 20, paddingBottom: 80 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: T.dark },
-  pageTitle: { fontSize: 24, fontWeight: "800", color: T.white, marginBottom: 24 },
+  container: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: spacing.xl, paddingTop: 56, paddingBottom: 60 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg },
+  pageTitle: { ...typography.title1, color: colors.label },
+  pageSub: { ...typography.subhead, color: colors.labelTertiary, marginTop: 4, marginBottom: spacing.xxl },
 
-  // Avatar
-  avatarSection: { alignItems: "center", marginBottom: 28 },
-  avatar: { width: 100, height: 100, borderRadius: 50 },
-  avatarPlaceholder: {
-    width: 100, height: 100, borderRadius: 50,
-    backgroundColor: T.gray1, justifyContent: "center", alignItems: "center",
-    borderWidth: 2, borderColor: T.gray5, borderStyle: "dashed",
-  },
-  avatarPlaceholderText: { color: T.gray3, fontSize: 12 },
-  avatarHint: { color: T.red, fontSize: 12, marginTop: 8 },
+  mediaBlock: { marginBottom: 52 },
+  avatarOverlap: { position: "absolute", bottom: -46, left: spacing.lg },
 
-  // Section
-  sectionHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 32, marginBottom: 4 },
-  sectionAccent: { width: 3, height: 20, backgroundColor: T.red, borderRadius: 2, marginTop: 2 },
-  sectionTitle: { fontSize: 15, fontWeight: "800", color: T.white },
-  sectionNote: { fontSize: 11, color: T.gray3, marginTop: 3, lineHeight: 16 },
-
-  // Field
-  label: { fontSize: 12, fontWeight: "600", color: T.gray3, marginBottom: 6 },
-  fieldHint: { fontSize: 11, color: T.gray3, marginBottom: 6, lineHeight: 16 },
-  input: {
-    borderWidth: 1, borderColor: T.gray5, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14,
-    color: T.white, backgroundColor: T.dark3,
-  },
-  inputMulti: { minHeight: 100, textAlignVertical: "top" },
-
-  // Category
-  categoryRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
-  catBtn: {
-    borderWidth: 1, borderColor: T.gray5, borderRadius: 8,
-    paddingVertical: 8, paddingHorizontal: 14, backgroundColor: T.dark3,
-  },
-  catBtnActive: { borderColor: T.red, backgroundColor: "rgba(232,0,45,0.12)" },
-  catBtnText: { fontSize: 13, color: T.gray3 },
-  catBtnTextActive: { color: T.red, fontWeight: "700" },
-
-  row: { flexDirection: "row", gap: 12 },
-  budgetRow: { flexDirection: "row", gap: 12, marginTop: 4 },
-
-  // Story cards
-  storyCard: {
-    backgroundColor: T.dark3, borderRadius: 14, padding: 16,
-    marginTop: 14, borderWidth: 1, borderColor: T.gray5,
-  },
-  storyCardIcon: { fontSize: 20, marginBottom: 6 },
-  storyCardTitle: { fontSize: 14, fontWeight: "800", color: T.white, marginBottom: 4 },
-  storyCardHint: { fontSize: 11, color: T.gray3, lineHeight: 17, marginBottom: 12 },
-
-  // Buttons
-  btns: { flexDirection: "row", gap: 12, marginTop: 36 },
-  draftBtn: {
-    flex: 1, borderWidth: 1, borderColor: T.gray5,
-    borderRadius: 12, paddingVertical: 15, alignItems: "center",
-    backgroundColor: T.dark3,
-  },
-  draftBtnText: { color: T.gray3, fontSize: 14, fontWeight: "600" },
-  publishBtn: {
-    flex: 1, backgroundColor: T.red,
-    borderRadius: 12, paddingVertical: 15, alignItems: "center",
-  },
-  publishBtnText: { color: T.white, fontSize: 14, fontWeight: "800" },
-  btnDisabled: { opacity: 0.5 },
-
+  label: { ...typography.footnote, fontWeight: "600", color: colors.labelSecondary, marginBottom: 7 },
+  row: { flexDirection: "row", gap: spacing.md },
+  btns: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xxxl },
 });

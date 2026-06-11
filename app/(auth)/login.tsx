@@ -1,25 +1,13 @@
 import { useState } from "react";
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, KeyboardAvoidingView, Platform, Pressable, ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
-
-const T = {
-  red: "#E8002D",
-  dark: "#0A0A0A",
-  dark2: "#111111",
-  dark3: "#1A1A1A",
-  dark4: "#222222",
-  gray2: "#555",
-  gray3: "#666",
-  gray4: "#999",
-  gray5: "#2A2A2A",
-  bg: "#141414",
-  white: "#FFFFFF",
-};
+import { colors, spacing, typography, radius } from "../../lib/theme";
+import { Button, Input } from "../../components/ui";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -44,129 +32,79 @@ export default function LoginScreen() {
 
   async function handleGoogle() {
     setGoogleLoading(true);
-    try {
-      await signInWithGoogle();
-    } catch (e: any) {
-      setError(e.message ?? "Googleログインに失敗しました");
-    } finally {
-      setGoogleLoading(false);
-    }
+    try { await signInWithGoogle(); }
+    catch (e: any) { setError(e.message ?? "Googleログインに失敗しました"); }
+    finally { setGoogleLoading(false); }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={styles.container}>
-        {/* Logo */}
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.back}>
+          <Ionicons name="chevron-back" size={26} color={colors.label} />
+        </Pressable>
+
         <View style={styles.logoRow}>
-          <View style={styles.logoIcon}><Text style={{ fontSize: 18 }}>🏎</Text></View>
-          <Text style={styles.logoText}>DriverFund</Text>
+          <View style={styles.logoIcon}>
+            <Ionicons name="car-sport" size={20} color={colors.white} />
+          </View>
+          <Text style={styles.logoText}>
+            Driver<Text style={{ color: colors.brand }}>Fund</Text>
+          </Text>
         </View>
 
         <Text style={styles.title}>ログイン</Text>
 
-        {/* Google login */}
-        <TouchableOpacity
-          style={[styles.googleBtn, googleLoading && styles.btnDisabled]}
-          onPress={handleGoogle}
-          disabled={googleLoading}
-        >
-          <Text style={styles.googleIcon}>G</Text>
-          <Text style={styles.googleBtnText}>
-            {googleLoading ? "ログイン中..." : "Googleでログイン"}
-          </Text>
-        </TouchableOpacity>
+        <Button title={googleLoading ? "ログイン中..." : "Googleでログイン"} variant="secondary"
+          icon="logo-google" onPress={handleGoogle} loading={googleLoading} />
 
-        {/* Divider */}
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>または</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Email / Password */}
-        <Text style={styles.label}>メールアドレス</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="example@email.com"
-          placeholderTextColor={T.gray3}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+        <Input label="メールアドレス" value={email} onChangeText={setEmail}
+          placeholder="example@email.com" keyboardType="email-address" autoCapitalize="none" />
+        <Input label="パスワード" value={password} onChangeText={setPassword}
+          placeholder="••••••••" secureTextEntry autoCapitalize="none" />
 
-        <Text style={styles.label}>パスワード</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="••••••••"
-          placeholderTextColor={T.gray3}
-          secureTextEntry
-        />
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Button title="ログイン" variant="primary" loading={loading}
+          onPress={handleLogin} style={{ marginTop: spacing.md }} />
 
-        <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          <Text style={styles.btnText}>{loading ? "ログイン中..." : "ログイン"}</Text>
-        </TouchableOpacity>
+        <Pressable onPress={() => router.push("/(auth)/forgot-password")}
+          style={({ pressed }) => [styles.forgot, pressed && { opacity: 0.6 }]}>
+          <Text style={styles.forgotText}>パスワードをお忘れの方はこちら</Text>
+        </Pressable>
 
-        <TouchableOpacity onPress={() => router.push("/(auth)/forgot-password")}>
-          <Text style={styles.forgotLink}>パスワードをお忘れの方はこちら</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.replace("/(auth)/signup")}>
-          <Text style={styles.link}>アカウントをお持ちでない方はこちら</Text>
-        </TouchableOpacity>
-      </View>
+        <Pressable onPress={() => router.replace("/(auth)/signup")}
+          style={({ pressed }) => [styles.link, pressed && { opacity: 0.6 }]}>
+          <Text style={styles.linkText}>アカウントをお持ちでない方はこちら</Text>
+        </Pressable>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.dark, padding: 28, paddingTop: 64 },
-  logoRow: { flexDirection: "row", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 40 },
+  content: { padding: spacing.xxl, paddingTop: 56, paddingBottom: 48 },
+  back: { marginLeft: -6, marginBottom: spacing.lg },
+  logoRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, justifyContent: "center", marginBottom: spacing.xxl },
   logoIcon: {
-    width: 34, height: 34, backgroundColor: T.red, borderRadius: 8,
+    width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brand,
     alignItems: "center", justifyContent: "center",
-    shadowColor: T.red, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6,
   },
-  logoText: { fontSize: 22, fontWeight: "900", color: T.white, letterSpacing: 2 },
-  title: { fontSize: 26, fontWeight: "900", color: T.white, marginBottom: 28, textAlign: "center", letterSpacing: 0.5 },
-  googleBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10,
-    borderWidth: 1, borderColor: T.gray5, borderRadius: 12,
-    paddingVertical: 14, backgroundColor: T.dark3,
-  },
-  googleIcon: {
-    fontSize: 16, fontWeight: "900", color: T.white,
-    width: 22, height: 22, textAlign: "center", lineHeight: 22,
-  },
-  googleBtnText: { fontSize: 15, fontWeight: "600", color: T.white },
-  divider: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 24 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: T.gray5 },
-  dividerText: { fontSize: 12, color: T.gray3 },
-  label: { fontSize: 11, fontWeight: "700", color: T.gray4, marginTop: 18, marginBottom: 8, letterSpacing: 1, textTransform: "uppercase" },
-  input: {
-    borderWidth: 1, borderColor: T.gray5, borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14, fontSize: 15,
-    color: T.white, backgroundColor: T.dark3,
-  },
-  errorText: { color: T.red, fontSize: 13, marginTop: 12, textAlign: "center" },
-  btn: {
-    backgroundColor: T.red, borderRadius: 12,
-    paddingVertical: 16, alignItems: "center", marginTop: 28,
-    shadowColor: T.red, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
-  },
-  btnDisabled: { opacity: 0.5 },
-  btnText: { color: T.white, fontSize: 15, fontWeight: "800", letterSpacing: 0.5 },
-  forgotLink: { color: T.gray3, textAlign: "center", marginTop: 16, fontSize: 12 },
-  link: { color: T.red, textAlign: "center", marginTop: 20, fontSize: 13, fontWeight: "600" },
+  logoText: { fontSize: 22, fontWeight: "900", color: colors.label, letterSpacing: 0.5 },
+  title: { ...typography.title1, color: colors.label, textAlign: "center", marginBottom: spacing.xxl },
+  divider: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginVertical: spacing.xxl },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.separator },
+  dividerText: { ...typography.caption, color: colors.labelTertiary },
+  error: { ...typography.footnote, color: colors.danger, marginBottom: spacing.md, textAlign: "center" },
+  forgot: { marginTop: spacing.lg, alignItems: "center" },
+  forgotText: { ...typography.caption, color: colors.labelTertiary },
+  link: { marginTop: spacing.lg, alignItems: "center" },
+  linkText: { ...typography.footnote, color: colors.brand, fontWeight: "600" },
 });

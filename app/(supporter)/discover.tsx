@@ -1,50 +1,22 @@
 import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, TextInput, ActivityIndicator, ScrollView, Modal,
+  Image, TextInput, ActivityIndicator, ScrollView, Modal, Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { Driver, RacingCategory } from "../../lib/types";
-
-function PersonIcon({ color }: { color: string }) {
-  return (
-    <View style={{ width: 18, height: 18, alignItems: "center" }}>
-      {/* 頭 */}
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color, marginBottom: 2 }} />
-      {/* 肩 */}
-      <View style={{ width: 14, height: 6, borderTopLeftRadius: 7, borderTopRightRadius: 7, backgroundColor: color }} />
-    </View>
-  );
-}
-
-const T = {
-  red: "#E8002D",
-  bg: "#0D0D0D",
-  surface: "#161616",
-  border: "#252525",
-  text: "#F0F0F0",
-  sub: "#888888",
-  muted: "#555555",
-  white: "#FFFFFF",
-};
-
-const CAT_COLORS: Record<string, string> = {
-  sf: "#E8002D", f4: "#3B82F6", kart: "#22C55E", other: "#666",
-};
+import { colors, radius, spacing, typography, shadow, categoryColor, categoryShort } from "../../lib/theme";
 
 const CATEGORIES: { value: RacingCategory | "all"; label: string }[] = [
-  { value: "all",   label: "すべて" },
-  { value: "kart",  label: "カート" },
-  { value: "f4",    label: "F4" },
-  { value: "sf",    label: "SF" },
+  { value: "all", label: "すべて" },
+  { value: "kart", label: "カート" },
+  { value: "f4", label: "F4" },
+  { value: "sf", label: "SF" },
   { value: "other", label: "その他" },
 ];
-
-const catLabel: Record<RacingCategory, string> = {
-  kart: "カート", f4: "F4", sf: "SF", other: "その他",
-};
 
 type DriverWithProfile = Driver & {
   profiles?: { full_name: string; avatar_url?: string } | null;
@@ -53,10 +25,10 @@ type DriverWithProfile = Driver & {
 export default function DiscoverScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
-  const [drivers, setDrivers]   = useState<DriverWithProfile[]>([]);
+  const [drivers, setDrivers] = useState<DriverWithProfile[]>([]);
   const [filtered, setFiltered] = useState<DriverWithProfile[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState("");
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [category, setCategory] = useState<RacingCategory | "all">("all");
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -64,15 +36,12 @@ export default function DiscoverScreen() {
 
   useEffect(() => {
     let list = drivers;
-    if (category !== "all") list = list.filter(d => d.category === category);
+    if (category !== "all") list = list.filter((d) => d.category === category);
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter(d => {
+      list = list.filter((d) => {
         const name = d.profiles?.full_name ?? (d as any).full_name ?? "";
-        return (
-          name.toLowerCase().includes(q) ||
-          (d.team_name ?? "").toLowerCase().includes(q)
-        );
+        return name.toLowerCase().includes(q) || (d.team_name ?? "").toLowerCase().includes(q);
       });
     }
     setFiltered(list);
@@ -90,270 +59,221 @@ export default function DiscoverScreen() {
   }
 
   return (
-    <View style={s.root}>
-
-      {/* ─── ヘッダー ─── */}
-      <View style={s.header}>
-        <Text style={s.headerTitle}>DriverFund</Text>
-        <TouchableOpacity style={s.avatarBtn} onPress={() => setMenuOpen(true)}>
-          <PersonIcon color="#888" />
+    <View style={styles.root}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerEyebrow}>応援するドライバーを探す</Text>
+          <Text style={styles.headerTitle}>DriverFund</Text>
+        </View>
+        <TouchableOpacity style={styles.avatarBtn} onPress={() => setMenuOpen(true)}>
+          <Ionicons name="person" size={18} color={colors.labelSecondary} />
         </TouchableOpacity>
       </View>
 
-      {/* ─── 検索 ─── */}
-      <View style={s.searchRow}>
-        <View style={s.searchBox}>
-          <Text style={s.searchIco}>🔍</Text>
+      {/* Search */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={17} color={colors.labelTertiary} />
           <TextInput
-            style={s.searchInput}
+            style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
             placeholder="名前・チームで検索"
-            placeholderTextColor={T.muted}
+            placeholderTextColor={colors.labelQuaternary}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch("")}>
-              <Text style={s.searchClear}>✕</Text>
+              <Ionicons name="close-circle" size={18} color={colors.labelQuaternary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* ─── カテゴリ ─── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.chipRow}
-        style={s.chipScroll}
-      >
-        {CATEGORIES.map(c => (
-          <TouchableOpacity
-            key={c.value}
-            style={[s.chip, category === c.value && s.chipOn]}
-            onPress={() => setCategory(c.value)}
-          >
-            <Text style={[s.chipTxt, category === c.value && s.chipTxtOn]}>
-              {c.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Category chips */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow} style={styles.chipScroll}>
+        {CATEGORIES.map((c) => {
+          const active = category === c.value;
+          return (
+            <TouchableOpacity key={c.value}
+              style={[styles.chip, active && styles.chipOn]}
+              onPress={() => setCategory(c.value)}>
+              <Text style={[styles.chipTxt, active && styles.chipTxtOn]}>{c.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
-      {/* ─── リスト ─── */}
+      {/* List */}
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator color={T.red} size="large" />
-        </View>
+        <View style={styles.center}><ActivityIndicator color={colors.brand} size="large" /></View>
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={item => item.id}
-          contentContainerStyle={s.list}
-          ItemSeparatorComponent={() => <View style={s.separator} />}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <View style={s.emptyWrap}>
-              <Text style={s.emptyTxt}>ドライバーが見つかりません</Text>
+            <View style={styles.emptyWrap}>
+              <Ionicons name="car-sport-outline" size={40} color={colors.labelQuaternary} />
+              <Text style={styles.emptyTxt}>ドライバーが見つかりません</Text>
             </View>
           }
           renderItem={({ item }) => {
-            const name   = item.profiles?.full_name ?? (item as any).full_name ?? "—";
+            const name = item.profiles?.full_name ?? (item as any).full_name ?? "—";
             const avatar = item.profiles?.avatar_url ?? (item as any).avatar_url;
-            const cat    = item.category as RacingCategory;
-            const color  = CAT_COLORS[cat] ?? "#666";
+            const cat = item.category as RacingCategory;
+            const color = categoryColor[cat] ?? colors.catOther;
             return (
-              <TouchableOpacity
-                style={s.row}
-                onPress={() => router.push(`/driver/${item.id}`)}
-                activeOpacity={0.7}
-              >
-                {/* アバター */}
-                <View style={s.avatarWrap}>
+              <Pressable
+                style={({ pressed }) => [styles.card, pressed && { opacity: 0.95, transform: [{ scale: 0.995 }] }]}
+                onPress={() => router.push(`/driver/${item.id}`)}>
+                <View style={styles.avatarWrap}>
                   {avatar ? (
-                    <Image source={{ uri: avatar }} style={s.avatar} resizeMode="cover" />
+                    <Image source={{ uri: avatar }} style={styles.avatar} resizeMode="cover" />
                   ) : (
-                    <View style={[s.avatar, s.avatarFallback, { backgroundColor: color }]}>
-                      <Text style={s.avatarInitial}>{name[0]}</Text>
+                    <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: color }]}>
+                      <Text style={styles.avatarInitial}>{name[0]}</Text>
                     </View>
                   )}
                 </View>
 
-                {/* 情報 */}
-                <View style={s.info}>
-                  <View style={s.nameRow}>
-                    <Text style={s.name} numberOfLines={1}>{name}</Text>
-                    {item.car_number ? (
-                      <Text style={s.number}>#{item.car_number}</Text>
-                    ) : null}
+                <View style={styles.info}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.name} numberOfLines={1}>{name}</Text>
+                    {item.car_number ? <Text style={styles.number}>#{item.car_number}</Text> : null}
                   </View>
-
-                  <View style={s.metaRow}>
-                    {/* カテゴリバッジ */}
-                    <View style={[s.catBadge, { borderColor: color }]}>
-                      <Text style={[s.catBadgeTxt, { color }]}>{catLabel[cat]}</Text>
+                  <View style={styles.metaRow}>
+                    <View style={[styles.catBadge, { backgroundColor: color }]}>
+                      <Text style={styles.catBadgeTxt}>{categoryShort[cat]}</Text>
                     </View>
-                    {item.team_name ? (
-                      <Text style={s.team} numberOfLines={1}>{item.team_name}</Text>
-                    ) : null}
+                    {item.team_name ? <Text style={styles.team} numberOfLines={1}>{item.team_name}</Text> : null}
                   </View>
-
                   {item.catchphrase ? (
-                    <Text style={s.phrase} numberOfLines={1}>
-                      {item.catchphrase}
-                    </Text>
+                    <Text style={styles.phrase} numberOfLines={1}>{item.catchphrase}</Text>
                   ) : null}
                 </View>
 
-                {/* 応援数 */}
-                <View style={s.countWrap}>
-                  <Text style={s.countNum}>{item.total_supporters ?? 0}</Text>
-                  <Text style={s.countLbl}>応援</Text>
+                <View style={styles.countWrap}>
+                  <Text style={styles.countNum}>{item.total_supporters ?? 0}</Text>
+                  <Text style={styles.countLbl}>応援</Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             );
           }}
         />
       )}
 
-      {/* ─── アカウントメニュー ─── */}
-      <Modal
-        visible={menuOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setMenuOpen(false)}
-      >
-        <TouchableOpacity
-          style={s.overlay}
-          activeOpacity={1}
-          onPress={() => setMenuOpen(false)}
-        >
-          <View style={s.sheet}>
-            <View style={s.sheetHandle} />
-            <View style={s.sheetUserRow}>
-              <View style={s.sheetAvatar}>
-                <PersonIcon color="#888" />
+      {/* Account menu */}
+      <Modal visible={menuOpen} transparent animationType="slide" onRequestClose={() => setMenuOpen(false)}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setMenuOpen(false)}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetUserRow}>
+              <View style={styles.sheetAvatar}>
+                <Ionicons name="person" size={20} color={colors.labelSecondary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.sheetEmail} numberOfLines={1}>{user?.email}</Text>
-                <Text style={s.sheetRole}>サポーター</Text>
+                <Text style={styles.sheetEmail} numberOfLines={1}>{user?.email}</Text>
+                <Text style={styles.sheetRole}>サポーター</Text>
               </View>
             </View>
-            <View style={s.sheetDivider} />
-            <TouchableOpacity
-              style={s.sheetItem}
-              onPress={() => { setMenuOpen(false); setTimeout(() => signOut(), 150); }}
-            >
-              <Text style={s.sheetItemIco}>🚪</Text>
-              <Text style={s.sheetItemTxt}>ログアウト</Text>
+            <View style={styles.sheetDivider} />
+            <TouchableOpacity style={styles.sheetItem}
+              onPress={() => { setMenuOpen(false); router.push("/(supporter)/my-drivers"); }}>
+              <Ionicons name="heart-outline" size={20} color={colors.label} />
+              <Text style={styles.sheetItemTxt}>応援中のドライバー</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.sheetCancel} onPress={() => setMenuOpen(false)}>
-              <Text style={s.sheetCancelTxt}>キャンセル</Text>
+            <TouchableOpacity style={styles.sheetItem}
+              onPress={() => { setMenuOpen(false); setTimeout(() => signOut(), 150); }}>
+              <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+              <Text style={[styles.sheetItemTxt, { color: colors.danger }]}>ログアウト</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
-
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: T.bg },
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
 
-  // Header
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12,
+    paddingHorizontal: spacing.xl, paddingTop: 56, paddingBottom: spacing.md,
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: T.text, letterSpacing: 0.5 },
+  headerEyebrow: { ...typography.caption, color: colors.labelTertiary, marginBottom: 2 },
+  headerTitle: { ...typography.title1, color: colors.label },
   avatarBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    borderWidth: 1.5, borderColor: "#444",
+    width: 40, height: 40, borderRadius: 20, backgroundColor: colors.bgGrouped,
     alignItems: "center", justifyContent: "center",
-    overflow: "hidden",
   },
-  avatarBtnText: { fontSize: 16 },
 
-  // Search
-  searchRow: { paddingHorizontal: 16, paddingBottom: 10 },
+  searchRow: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
   searchBox: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: T.surface, borderRadius: 10, borderWidth: 1, borderColor: T.border,
-    paddingHorizontal: 14, paddingVertical: 10,
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    backgroundColor: colors.bgGrouped, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: 11,
   },
-  searchIco: { fontSize: 14 },
-  searchInput: { flex: 1, fontSize: 14, color: T.text },
-  searchClear: { fontSize: 14, color: T.sub, paddingLeft: 6 },
+  searchInput: { flex: 1, fontSize: 16, color: colors.label },
 
-  // Chips
   chipScroll: { flexGrow: 0 },
-  chipRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 12, flexDirection: "row" },
+  chipRow: { paddingHorizontal: spacing.xl, gap: spacing.sm, paddingBottom: spacing.md },
   chip: {
-    borderWidth: 1, borderColor: T.border, borderRadius: 16,
-    paddingVertical: 5, paddingHorizontal: 14, backgroundColor: T.surface,
+    borderRadius: radius.pill, paddingVertical: 7, paddingHorizontal: 16,
+    backgroundColor: colors.bgGrouped,
   },
-  chipOn: { backgroundColor: "transparent", borderColor: T.white },
-  chipTxt: { fontSize: 13, fontWeight: "500", color: T.sub },
-  chipTxtOn: { color: T.white, fontWeight: "600" },
+  chipOn: { backgroundColor: colors.label },
+  chipTxt: { ...typography.footnote, fontWeight: "600", color: colors.labelSecondary },
+  chipTxtOn: { color: colors.white, fontWeight: "700" },
 
-  // List
-  list: { paddingBottom: 100 },
-  separator: { height: 1, backgroundColor: T.border, marginLeft: 76 },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: 100 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  emptyWrap: { paddingTop: 80, alignItems: "center" },
-  emptyTxt: { color: T.sub, fontSize: 15 },
+  emptyWrap: { paddingTop: 80, alignItems: "center", gap: spacing.md },
+  emptyTxt: { ...typography.callout, color: colors.labelTertiary },
 
-  // Row card
-  row: {
-    flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+  card: {
+    flexDirection: "row", alignItems: "center", gap: spacing.md,
+    backgroundColor: colors.surface, borderRadius: radius.lg,
+    padding: spacing.md, marginBottom: spacing.sm + 2, ...shadow.sm,
   },
   avatarWrap: {},
-  avatar: { width: 48, height: 48, borderRadius: 24 },
+  avatar: { width: 56, height: 56, borderRadius: 28 },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
-  avatarInitial: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  avatarInitial: { color: colors.white, fontSize: 22, fontWeight: "800" },
 
-  info: { flex: 1, gap: 3 },
+  info: { flex: 1, gap: 4 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  name: { fontSize: 15, fontWeight: "700", color: T.text, flex: 1 },
-  number: { fontSize: 12, color: T.sub, fontWeight: "600" },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  catBadge: {
-    borderWidth: 1, borderRadius: 4,
-    paddingVertical: 1, paddingHorizontal: 6,
-  },
-  catBadgeTxt: { fontSize: 10, fontWeight: "700", letterSpacing: 0.3 },
-  team: { fontSize: 12, color: T.sub, flex: 1 },
-  phrase: { fontSize: 12, color: T.sub, fontStyle: "italic" },
+  name: { ...typography.headline, color: colors.label, flexShrink: 1 },
+  number: { ...typography.footnote, color: colors.labelTertiary, fontWeight: "700" },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  catBadge: { borderRadius: radius.sm - 2, paddingVertical: 2, paddingHorizontal: 7 },
+  catBadgeTxt: { color: colors.white, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
+  team: { ...typography.caption, color: colors.labelTertiary, flexShrink: 1 },
+  phrase: { ...typography.caption, color: colors.labelTertiary, fontStyle: "italic" },
 
-  countWrap: { alignItems: "center", minWidth: 40 },
-  countNum: { fontSize: 16, fontWeight: "800", color: T.text },
-  countLbl: { fontSize: 10, color: T.sub, marginTop: 1 },
+  countWrap: { alignItems: "center", minWidth: 44 },
+  countNum: { ...typography.title3, color: colors.brand },
+  countLbl: { fontSize: 10, color: colors.labelTertiary, marginTop: 1 },
 
-  // Modal
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: "#1A1A1A", borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingTop: 12, paddingHorizontal: 24, paddingBottom: 44,
+    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    paddingTop: spacing.md, paddingHorizontal: spacing.xxl, paddingBottom: 44,
   },
   sheetHandle: {
-    alignSelf: "center", width: 36, height: 4,
-    borderRadius: 2, backgroundColor: T.border, marginBottom: 20,
+    alignSelf: "center", width: 36, height: 5, borderRadius: 3,
+    backgroundColor: colors.borderStrong, marginBottom: spacing.xl,
   },
-  sheetUserRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
+  sheetUserRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.lg },
   sheetAvatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: T.surface, borderWidth: 1, borderColor: T.border,
+    width: 46, height: 46, borderRadius: 23, backgroundColor: colors.bgGrouped,
     alignItems: "center", justifyContent: "center",
   },
-  sheetEmail: { fontSize: 14, fontWeight: "700", color: T.text },
-  sheetRole: { fontSize: 12, color: T.sub, marginTop: 2 },
-  sheetDivider: { height: 1, backgroundColor: T.border, marginBottom: 8 },
-  sheetItem: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14 },
-  sheetItemIco: { fontSize: 18 },
-  sheetItemTxt: { fontSize: 15, color: T.red, fontWeight: "700" },
-  sheetCancel: {
-    marginTop: 8, paddingVertical: 13,
-    backgroundColor: T.surface, borderRadius: 10, alignItems: "center",
-  },
-  sheetCancelTxt: { fontSize: 14, color: T.sub, fontWeight: "600" },
+  sheetEmail: { ...typography.subhead, fontWeight: "700", color: colors.label },
+  sheetRole: { ...typography.caption, color: colors.labelTertiary, marginTop: 2 },
+  sheetDivider: { height: 1, backgroundColor: colors.separator, marginBottom: spacing.xs },
+  sheetItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.lg },
+  sheetItemTxt: { ...typography.body, color: colors.label, fontWeight: "600" },
 });
