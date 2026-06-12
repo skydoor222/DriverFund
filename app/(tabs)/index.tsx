@@ -4,7 +4,7 @@ import {
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography, radius, shadow } from "../../lib/theme";
+import { colors, spacing, typography, radius } from "../../lib/theme";
 import {
   SearchBar, CategoryChips, DriverCardLarge, DriverCardCompact, EmptyState,
 } from "../../components/ui";
@@ -14,7 +14,6 @@ import { getViewHistory } from "../../lib/history";
 export default function HomeScreen() {
   const router = useRouter();
   const [category, setCategory] = useState("all");
-  const [featured, setFeatured] = useState<DriverLike | null>(null);
   const [recommended, setRecommended] = useState<DriverLike[]>([]);
   const [viewed, setViewed] = useState<DriverLike[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +26,6 @@ export default function HomeScreen() {
         order: "supporters",
         limit: 50,
       });
-      setFeatured(all[0] ?? null);
       setRecommended(all);
 
       // 閲覧履歴（チェックした選手）
@@ -100,19 +98,6 @@ export default function HomeScreen() {
           />
         ) : (
           <>
-            {/* 編集部おすすめ大バナー */}
-            {featured && (
-              <View style={s.section}>
-                <SectionTitle icon="flame" title="今週の注目ドライバー" />
-                <Pressable onPress={() => go(featured.id)} style={({ pressed }) => [s.feature, pressed && { opacity: 0.9 }]}>
-                  <DriverCardLarge driver={featured} onPress={() => go(featured.id)} />
-                  <View style={s.featureBadge}>
-                    <Text style={s.featureBadgeTxt}>編集部おすすめ</Text>
-                  </View>
-                </Pressable>
-              </View>
-            )}
-
             {/* チェックした選手（横スクロール） */}
             {viewed.length > 0 && (
               <View style={s.section}>
@@ -183,14 +168,6 @@ const s = StyleSheet.create({
     paddingHorizontal: GUTTER, marginBottom: spacing.md,
   },
   sectionTitleTxt: { ...typography.title3, color: colors.label },
-
-  feature: { paddingHorizontal: GUTTER, position: "relative" },
-  featureBadge: {
-    position: "absolute", top: spacing.sm + 6, right: GUTTER + 6,
-    backgroundColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4,
-    ...shadow.sm,
-  },
-  featureBadgeTxt: { color: colors.white, fontSize: 11, fontWeight: "800" },
 
   hScroll: { paddingHorizontal: GUTTER, gap: spacing.md },
 
