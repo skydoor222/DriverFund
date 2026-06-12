@@ -22,10 +22,15 @@ export default function AccountScreen() {
       .eq("supporter_id", user.id).eq("status", "active");
     setSponsorCount(count ?? 0);
 
-    const { data: driver } = await supabase
-      .from("drivers").select("id").eq("profile_id", user.id).maybeSingle();
-    setIsDriver(!!driver);
-  }, [user]);
+    // profile.role が driver ならDBクエリ不要、そうでなければ確認
+    if (profile?.role === "driver") {
+      setIsDriver(true);
+    } else {
+      const { data: driver } = await supabase
+        .from("drivers").select("id").eq("profile_id", user.id).maybeSingle();
+      setIsDriver(!!driver);
+    }
+  }, [user, profile]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

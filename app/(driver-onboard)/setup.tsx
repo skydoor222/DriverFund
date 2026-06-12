@@ -128,6 +128,9 @@ export default function DriverSetupScreen() {
         error = e;
       }
     }
+    // profiles.role を driver に更新（ログイン後の判定に使う）
+    await supabase.from("profiles").update({ role: "driver" }).eq("id", user.id);
+
     setSaving(false);
     if (error) { Alert.alert("エラー", error.message); return; }
     if (publish) setIsPublished(true);
