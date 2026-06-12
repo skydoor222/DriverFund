@@ -5,7 +5,7 @@ node_modules/
 
 # Expo
 .expo/
-dist/
+# dist/ -- tracked for Vercel static deploy (do not re-add to gitignore)
 web-build/
 expo-env.d.ts
 
