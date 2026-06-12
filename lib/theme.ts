@@ -40,7 +40,22 @@ export const colors = {
 
   white: "#FFFFFF",
   black: "#000000",
+
+  // ── クラファン風アクセント（達成率・ホットバッジ）──
+  flame: "#FF6B2C",        // 達成率バーの炎オレンジ
+  flameDeep: "#FF3D00",    // グラデの濃い側
+  rankGold: "#F5A623",     // ランキング1位
+  rankSilver: "#A8A8B3",   // 2位
+  rankBronze: "#CD7F32",   // 3位
+  bgWarm: "#FFF7F3",       // 暖色の薄い背景（おすすめセクション）
 } as const;
+
+// カテゴリ拡張（GT / フォーミュラ追加に備えた表示色フォールバック）
+export const categoryColorOf = (cat?: string): string =>
+  (cat && categoryColorMap[cat]) || colors.catOther;
+const categoryColorMap: Record<string, string> = {
+  sf: colors.catSf, f4: colors.catF4, kart: colors.catKart, other: colors.catOther,
+};
 
 // カテゴリ → 色
 export const categoryColor: Record<string, string> = {

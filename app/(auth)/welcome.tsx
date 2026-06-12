@@ -28,11 +28,11 @@ export default function WelcomeScreen() {
 
       {/* ── ボタン ── */}
       <View style={styles.buttons}>
-        <Button title="ドライバーを応援する" icon="heart"
-          onPress={() => router.push({ pathname: "/(auth)/signup", params: { role: "supporter" } })} />
+        <Button title="ドライバーを見てみる" icon="arrow-forward"
+          onPress={() => router.replace("/(tabs)")} />
 
         <Pressable
-          onPress={() => router.push({ pathname: "/(auth)/signup", params: { role: "driver" } })}
+          onPress={() => router.push("/(driver-onboard)/welcome")}
           style={({ pressed }) => [styles.driverLink, pressed && { opacity: 0.6 }]}>
           <Text style={styles.driverLinkText}>ドライバーとして登録する</Text>
         </Pressable>

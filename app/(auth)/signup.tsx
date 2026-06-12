@@ -48,7 +48,7 @@ export default function SignupScreen() {
         { id: data.session.user.id, full_name: fullName, email, role },
         { onConflict: "id" },
       );
-      router.replace(isDriver ? "/(driver)/setup" : "/(supporter)/discover");
+      router.replace(isDriver ? "/(driver-onboard)/setup" : "/(tabs)");
     } else {
       setError("確認メールを送信しました。メールを確認してください。");
     }

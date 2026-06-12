@@ -19,10 +19,10 @@ export default function PaymentSuccessScreen() {
       </Text>
 
       <View style={styles.actions}>
-        <Button title="ドライバー一覧へ" variant="primary"
-          onPress={() => router.replace("/(supporter)/discover")} />
-        <Button title="応援中の一覧を見る" variant="ghost"
-          onPress={() => router.replace("/(supporter)/my-drivers")} />
+        <Button title="ホームに戻る" variant="primary"
+          onPress={() => router.replace("/(tabs)")} />
+        <Button title="気になるリストを見る" variant="ghost"
+          onPress={() => router.replace("/(tabs)/saved")} />
       </View>
     </View>
   );

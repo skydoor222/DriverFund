@@ -60,6 +60,50 @@ export interface Driver {
   // Stripe Connect
   stripe_account_id?: string;
   stripe_onboarding_complete?: boolean;
+  // v2: 達成率・ランキング・カウントダウン
+  season_goal_amount?: number;    // 年間活動費目標（達成率の分母）
+  season_raised_amount?: number;  // 今季応援総額（達成率の分子）
+  weekly_rank?: number;           // 週次ランキング順位
+  rank_change?: number;           // 前週比順位変動（+2 / -1）
+  next_race_id?: string;          // 次戦
+  created_at?: string;
+}
+
+// 達成率を計算（0-100+）
+export function achievementRate(d: Pick<Driver, "season_goal_amount" | "season_raised_amount">): number {
+  if (!d.season_goal_amount || d.season_goal_amount <= 0) return 0;
+  return Math.round(((d.season_raised_amount ?? 0) / d.season_goal_amount) * 100);
+}
+
+export type PostType = "update" | "race_result" | "behind_scenes" | "milestone";
+
+export interface Post {
+  id: string;
+  driver_id: string;
+  type: PostType;
+  title?: string;
+  body: string;
+  image_urls?: string[];
+  race_round?: number;
+  created_at: string;
+  driver?: Driver;
+}
+
+export interface Race {
+  id: string;
+  category: string;
+  series_name?: string;
+  round?: number;
+  circuit: string;
+  race_date: string;   // ISO date
+  created_at?: string;
+}
+
+export interface Favorite {
+  id: string;
+  user_id: string;
+  driver_id: string;
+  created_at: string;
 }
 
 // レース結果1行の型
