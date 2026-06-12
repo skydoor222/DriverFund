@@ -21,25 +21,29 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const all = await fetchPublishedDrivers({
-      category,
-      order: "supporters",
-      limit: 50,
-    });
-    setFeatured(all[0] ?? null);
-    setRecommended(all);
+    try {
+      const all = await fetchPublishedDrivers({
+        category,
+        order: "supporters",
+        limit: 50,
+      });
+      setFeatured(all[0] ?? null);
+      setRecommended(all);
 
-    // 閲覧履歴（チェックした選手）
-    const history = await getViewHistory();
-    if (history.length) {
-      const map = new Map(all.map((d) => [d.id, d]));
-      // 履歴にあるが all に無い場合もあるので、足りない分は別途取得
-      const fromAll = history.map((id) => map.get(id)).filter(Boolean) as DriverLike[];
-      setViewed(fromAll);
-    } else {
-      setViewed([]);
+      // 閲覧履歴（チェックした選手）
+      const history = await getViewHistory();
+      if (history.length) {
+        const map = new Map(all.map((d) => [d.id, d]));
+        const fromAll = history.map((id) => map.get(id)).filter(Boolean) as DriverLike[];
+        setViewed(fromAll);
+      } else {
+        setViewed([]);
+      }
+    } catch (e) {
+      console.warn("HomeScreen load error", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [category]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));

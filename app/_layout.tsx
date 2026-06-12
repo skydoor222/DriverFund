@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -70,6 +71,13 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      document.body.style.backgroundColor = colors.bg;
+      document.documentElement.style.backgroundColor = colors.bg;
+    }
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <AuthProvider>
