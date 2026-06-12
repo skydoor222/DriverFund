@@ -10,6 +10,7 @@ export {
   DriverCardLarge, DriverCardCompact, DriverRow, DriverRankRow,
 } from "./DriverCard";
 export { EmptyState } from "./EmptyState";
+export { ChallengeCard } from "./Challenge";
 export { SearchBar } from "./SearchBar";
 export { CategoryScroller, CategoryChips, RACING_CATEGORIES } from "./CategoryScroller";
 export type { CategoryItem } from "./CategoryScroller";

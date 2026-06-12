@@ -14,7 +14,7 @@ import {
 import { achievementRate, type ReturnItem, type RaceResult, type Post, type Race } from "../../lib/types";
 import { fetchDriver, type DriverLike } from "../../lib/drivers";
 import { recordView, isFavorite, toggleFavorite } from "../../lib/history";
-import { AchievementBar, Countdown } from "../../components/ui";
+import { AchievementBar, Countdown, ChallengeCard } from "../../components/ui";
 
 const TABS = ["ストーリー", "応援する", "投稿"] as const;
 type Tab = typeof TABS[number];
@@ -231,6 +231,11 @@ export default function DriverDetail() {
         {/* ── STORY ── */}
         {tab === "ストーリー" && (
           <View style={s.tabBody}>
+            {/* チャレンジ（目標）— 参考アプリ風。最上部で挑戦を宣言 */}
+            {driver.goal ? (
+              <ChallengeCard goals={driver.goal.split("\n").map((l) => l.trim()).filter(Boolean)} />
+            ) : null}
+
             {story.conflict ? (
               <View style={s.conflictCard}>
                 <View style={s.conflictHead}>
@@ -340,6 +345,14 @@ export default function DriverDetail() {
         {/* ── 応援する ── */}
         {tab === "応援する" && (
           <View style={s.tabBody}>
+            {/* パーソナルスポンサー イントロ（参考アプリ風） */}
+            <View style={s.sponsorIntro}>
+              <Ionicons name="star" size={18} color={colors.brand} />
+              <Text style={s.sponsorIntroTxt}>
+                スポンサーになって{driver.full_name}を応援しよう！
+              </Text>
+            </View>
+
             {story.fund_usage ? (
               <View style={s.fundCard}>
                 <Text style={s.fundTitle}>あなたの支援で変わること</Text>
@@ -403,8 +416,8 @@ export default function DriverDetail() {
             <Text style={s.footerPrice}>¥{(lowestPrice ?? 0).toLocaleString()}〜</Text>
           </View>
           <Pressable style={s.footerBtn} onPress={() => setTab("応援する")}>
-            <Ionicons name="heart" size={16} color={colors.white} />
-            <Text style={s.footerBtnTxt}>応援する</Text>
+            <Ionicons name="star" size={16} color={colors.white} />
+            <Text style={s.footerBtnTxt}>スポンサーになる</Text>
           </Pressable>
         </View>
       )}
@@ -603,6 +616,13 @@ const s = StyleSheet.create({
 
   goalRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
   goalTxt: { ...typography.subhead, color: colors.labelSecondary, flex: 1, lineHeight: 24 },
+
+  // Sponsor intro
+  sponsorIntro: {
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.lg,
+  },
+  sponsorIntroTxt: { ...typography.headline, color: colors.brand, flex: 1, lineHeight: 23 },
 
   // Fund
   fundCard: { backgroundColor: colors.bgWarm, borderRadius: radius.lg, padding: spacing.lg },
