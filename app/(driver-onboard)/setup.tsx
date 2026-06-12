@@ -111,10 +111,22 @@ export default function DriverSetupScreen() {
     let error; let isNew = false;
     if (driverId) {
       ({ error } = await supabase.from("drivers").update(payload).eq("id", driverId));
+      // season_* カラム未追加のDBでも動くようフォールバック
+      if (error?.message?.includes("season_")) {
+        const { season_goal_amount, season_raised_amount, ...safePayload } = payload;
+        ({ error } = await supabase.from("drivers").update(safePayload).eq("id", driverId));
+      }
     } else {
       const { data, error: e } = await supabase.from("drivers").insert(payload).select().single();
-      if (data) { setDriverId(data.id); isNew = true; }
-      error = e;
+      if (e?.message?.includes("season_")) {
+        const { season_goal_amount, season_raised_amount, ...safePayload } = payload;
+        const { data: d2, error: e2 } = await supabase.from("drivers").insert(safePayload).select().single();
+        if (d2) { setDriverId(d2.id); isNew = true; }
+        error = e2;
+      } else {
+        if (data) { setDriverId(data.id); isNew = true; }
+        error = e;
+      }
     }
     setSaving(false);
     if (error) { Alert.alert("エラー", error.message); return; }
