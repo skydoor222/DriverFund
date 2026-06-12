@@ -45,13 +45,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    setProfile(data);
-    setLoading(false);
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+      setProfile(data ?? null);
+    } catch {
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function signOut() {
