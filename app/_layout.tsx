@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as Font from "expo-font";
+import { Ionicons } from "@expo/vector-icons";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { colors } from "../lib/theme";
@@ -70,6 +72,12 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = Font.useFonts({
+    ...Ionicons.font,
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <AuthProvider>
