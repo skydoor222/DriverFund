@@ -67,5 +67,5 @@ const SIZES: Record<Size, { py: number; px: number; fontSize: number; radius: nu
 const styles = StyleSheet.create({
   base: { alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
-  text: { fontWeight: "700", letterSpacing: 0.2 },
+  text: { fontWeight: "600", letterSpacing: 0.5 },
 });
