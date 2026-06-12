@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Platform } from "react-native";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { colors } from "../lib/theme";
@@ -71,19 +70,6 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    // Web: inject @font-face for Ionicons via CSS so icons render without useFonts blocking
-    const style = document.createElement("style");
-    style.textContent = `@font-face {
-      font-family: 'Ionicons';
-      src: url('/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.b4eb097d35f44ed943676fd56f6bdc51.ttf') format('truetype');
-      font-weight: normal;
-      font-style: normal;
-    }`;
-    document.head.appendChild(style);
-  }, []);
-
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <AuthProvider>
