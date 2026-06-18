@@ -61,9 +61,8 @@ Deno.serve(async (req) => {
 
     // Connectアカウントがある場合はそのアカウントで作成（直接入金）
     // ない場合は運営アカウントで作成（後で手動送金）
-    const stripeOptions = isConnected && connectedAccountId
-      ? { stripeAccount: connectedAccountId }
-      : {};
+    const useConnect = isConnected && !!connectedAccountId;
+    const stripeOpts = useConnect ? { stripeAccount: connectedAccountId! } : undefined;
 
     // Stripe Product 作成
     const product = await stripe.products.create(
@@ -75,7 +74,7 @@ Deno.serve(async (req) => {
           driver_id: item.driver_id,
         },
       },
-      stripeOptions
+      stripeOpts
     );
 
     // Stripe Price 作成
@@ -88,7 +87,7 @@ Deno.serve(async (req) => {
           ? { recurring: { interval: "month" } }
           : {}),
       },
-      stripeOptions
+      stripeOpts
     );
 
     // Payment Link 作成
@@ -106,7 +105,7 @@ Deno.serve(async (req) => {
           },
         },
       },
-      stripeOptions
+      stripeOpts
     );
 
     // DBに保存

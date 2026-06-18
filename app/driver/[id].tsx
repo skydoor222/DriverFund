@@ -103,7 +103,14 @@ export default function DriverDetail() {
         if (!res.ok || data.error) throw new Error(data.error ?? "決済の準備に失敗しました。");
         paymentUrl = data.url;
       }
-      if (paymentUrl) { setSelected(null); await Linking.openURL(paymentUrl); }
+      if (paymentUrl) {
+        setSelected(null);
+        if (typeof window !== "undefined") {
+          window.location.href = paymentUrl;
+        } else {
+          await Linking.openURL(paymentUrl);
+        }
+      }
       else Alert.alert("準備中", "このドライバーの決済設定がまだ完了していません。");
     } catch (e: any) {
       Alert.alert("エラー", e.message ?? "決済リンクの取得に失敗しました");
