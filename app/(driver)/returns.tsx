@@ -74,6 +74,20 @@ export default function ReturnsScreen() {
     setModalVisible(true);
   }
 
+  async function syncStripe(returnItemId: string) {
+    const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const res = await fetch(`${url}/functions/v1/create-payment-link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ return_item_id: returnItemId }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      console.warn("Stripe sync failed:", d.error);
+    }
+  }
+
   async function handleSave() {
     if (!title || !price || !driverId) {
       Alert.alert("入力エラー", "タイトルと価格を入力してください");
@@ -81,19 +95,40 @@ export default function ReturnsScreen() {
     }
     setSaving(true);
     const ql = quantityLimit ? parseInt(quantityLimit) : null;
+
+    // 編集時に価格・タイトル・支払いタイプが変わった場合はStripe URLをリセット
+    const editingItem = items.find((i) => i.id === editingId);
+    const stripeReset = editingId && editingItem && (
+      editingItem.price !== parseInt(price) ||
+      editingItem.title !== title ||
+      editingItem.billing_type !== billingType
+    );
+
     const payload: any = {
       driver_id: driverId, title, description,
       image_url: imageUrl || null, category,
       price: parseInt(price), quantity_limit: ql,
       billing_type: billingType, is_active: true,
+      ...(stripeReset ? { stripe_payment_link_url: null, stripe_price_id: null } : {}),
     };
     if (!editingId) payload.remaining = ql;
 
-    let error;
+    let error; let newId: string | null = null;
     if (editingId) {
       ({ error } = await supabase.from("return_items").update(payload).eq("id", editingId));
+      if (!error) {
+        // 価格等が変わった場合 or まだStripe未生成の場合は再生成
+        const needsSync = stripeReset || !editingItem?.stripe_payment_link_url;
+        if (needsSync) await syncStripe(editingId);
+      }
     } else {
-      ({ error } = await supabase.from("return_items").insert(payload));
+      const { data, error: e } = await supabase.from("return_items").insert(payload).select("id").single();
+      error = e;
+      if (data) {
+        newId = data.id;
+        // 新規は即時Stripe同期
+        await syncStripe(data.id);
+      }
     }
     setSaving(false);
     if (error) { Alert.alert("エラー", error.message); return; }
