@@ -101,7 +101,8 @@ export default function ReturnsScreen() {
     const stripeReset = editingId && editingItem && (
       editingItem.price !== parseInt(price) ||
       editingItem.title !== title ||
-      editingItem.billing_type !== billingType
+      editingItem.billing_type !== billingType ||
+      editingItem.description !== description
     );
 
     const payload: any = {
