@@ -13,17 +13,39 @@ export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    // Web: URLのハッシュフラグメントからセッションを取得
-    if (typeof window !== "undefined") {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          // _layout.tsx の onAuthStateChange が遷移を処理するので待つだけ
-        } else {
-          // セッションが取れなかった場合はログインに戻す
-          router.replace("/(auth)/login");
-        }
-      });
+    if (typeof window === "undefined") return;
+
+    async function handleCallback() {
+      // URLフラグメント(#access_token=...) or クエリ(?code=...) を処理
+      const hash = window.location.hash;
+      const search = window.location.search;
+
+      if (hash && hash.includes("access_token")) {
+        // implicit flow: フラグメントからセッションを確立
+        const { error } = await supabase.auth.getSession();
+        if (error) { router.replace("/(auth)/login"); return; }
+      } else if (search && search.includes("code=")) {
+        // PKCE flow: codeをセッションに交換
+        const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+        if (error) { router.replace("/(auth)/login"); return; }
+      }
+
+      // セッション確認して遷移
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.replace("/(auth)/login"); return; }
+
+      // profileのroleに応じて振り分け
+      const { data: profile } = await supabase
+        .from("profiles").select("role").eq("id", session.user.id).maybeSingle();
+
+      if (profile?.role === "driver") {
+        router.replace("/(driver)/dashboard");
+      } else {
+        router.replace("/(tabs)");
+      }
     }
+
+    handleCallback();
   }, []);
 
   return (
