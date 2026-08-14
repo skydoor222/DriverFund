@@ -42,3 +42,7 @@ yarn-error.*
 /android
 .vercel
 supabase/.temp/
+
+# 引き継ぎ用の個人ドラフト（リポジトリには含めない）
+_返信ドラフト_*.md
+_管理体制報告書.md
