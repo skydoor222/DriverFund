@@ -11,7 +11,14 @@
 ## 1. Supabase セットアップ
 
 1. [supabase.com](https://supabase.com) でプロジェクトを作成
-2. SQL Editorを開き `supabase/schema.sql` の内容を実行
+2. SQL Editorを開き、`supabase/migrations/` 配下のSQLを**以下の順番で**実行
+   ```
+   1. 0001_base_schema.sql               ← ベーステーブル
+   2. 0002_feed_and_ranking.sql
+   3. 20260603_stripe_payment_link.sql
+   4. 20260609_stripe_connect.sql
+   ```
+   > 0002 以降は既存テーブルへの列追加のため、順番を守ること。
 3. Storage で以下のバケットを作成（Public）
    - `avatars`
    - `covers`
