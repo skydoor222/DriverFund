@@ -7,6 +7,22 @@ cd "$(dirname "$0")/.."
 
 echo "=== DriverFund Stripe セットアップ ==="
 
+# Supabase プロジェクトRef は環境変数か .env から取得する。
+# （以前は旧プロジェクトのRefが直書きされていたが、そのプロジェクトは
+#   削除済みのため、必ず自分たちのRefを指定すること）
+if [ -z "$SUPABASE_PROJECT_REF" ]; then
+  SUPABASE_PROJECT_REF=$(grep -E '^SUPABASE_PROJECT_REF=' .env 2>/dev/null | cut -d= -f2)
+fi
+if [ -z "$SUPABASE_PROJECT_REF" ]; then
+  echo "エラー: SUPABASE_PROJECT_REF が未設定です。"
+  echo "  Supabase ダッシュボードのURL"
+  echo "  https://supabase.com/dashboard/project/<ここがRef> から取得し、"
+  echo "  .env に SUPABASE_PROJECT_REF=<Ref> を追記するか、"
+  echo "  SUPABASE_PROJECT_REF=<Ref> bash scripts/setup-stripe.sh で実行してください。"
+  exit 1
+fi
+echo "✓ Supabase Project Ref: $SUPABASE_PROJECT_REF"
+
 # 1. APIキー取得
 echo ""
 echo "▶ Stripe APIキーを取得中..."
@@ -49,8 +65,8 @@ fi
 # 4. Supabase Edge Functions デプロイ
 echo ""
 echo "▶ Supabase Edge Functions デプロイ中..."
-npx supabase functions deploy create-payment-link --project-ref thktcznsxieijkhxzitk
-npx supabase functions deploy stripe-webhook --project-ref thktcznsxieijkhxzitk
+npx supabase functions deploy create-payment-link --project-ref "$SUPABASE_PROJECT_REF"
+npx supabase functions deploy stripe-webhook --project-ref "$SUPABASE_PROJECT_REF"
 echo "✓ Edge Functions デプロイ完了"
 
 # 5. Supabase 環境変数設定
@@ -62,13 +78,13 @@ npx supabase secrets set \
   STRIPE_SECRET_KEY="$SECRET_KEY" \
   STRIPE_WEBHOOK_SECRET="$WEBHOOK_SECRET" \
   APP_URL="https://driverfund-app.vercel.app" \
-  --project-ref thktcznsxieijkhxzitk
+  --project-ref "$SUPABASE_PROJECT_REF"
 echo "✓ Supabase 環境変数設定完了"
 
 # 6. DBマイグレーション
 echo ""
 echo "▶ DBマイグレーション実行中..."
-SUPABASE_SERVICE_KEY=$(npx supabase projects api-keys --project-ref thktcznsxieijkhxzitk 2>/dev/null | grep service_role | awk '{print $NF}')
+SUPABASE_SERVICE_KEY=$(npx supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" 2>/dev/null | grep service_role | awk '{print $NF}')
 curl -s -X POST \
   "${SUPABASE_URL}/rest/v1/rpc/exec_sql" \
   -H "apikey: ${ANON_KEY}" \
@@ -78,7 +94,7 @@ curl -s -X POST \
   > /dev/null
 
 # より確実な方法：supabase CLIで実行
-npx supabase db push --project-ref thktcznsxieijkhxzitk 2>/dev/null || echo "⚠ マイグレーションは手動実行が必要な場合があります"
+npx supabase db push --project-ref "$SUPABASE_PROJECT_REF" 2>/dev/null || echo "⚠ マイグレーションは手動実行が必要な場合があります"
 echo "✓ DBマイグレーション完了"
 
 # 7. Vercel環境変数更新

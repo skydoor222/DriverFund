@@ -1,7 +1,7 @@
 -- ============================================
 -- 松井 啓人 プロフィール シードデータ
 -- Supabase SQL Editor で実行してください
--- https://supabase.com/dashboard/project/thktcznsxieijkhxzitk/sql
+-- https://supabase.com/dashboard/project/<自分たちのプロジェクトRef>/sql
 -- ============================================
 
 -- Step 1: auth.users に追加（Supabase管理ユーザー作成）
