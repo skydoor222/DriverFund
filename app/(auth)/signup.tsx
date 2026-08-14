@@ -37,20 +37,30 @@ export default function SignupScreen() {
     }
     setError("");
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { full_name: fullName, role } },
-    });
-    setLoading(false);
-    if (error) { setError(error.message); return; }
-    if (data.session) {
-      await supabase.from("profiles").upsert(
-        { id: data.session.user.id, full_name: fullName, email, role },
-        { onConflict: "id" },
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email, password,
+        options: { data: { full_name: fullName, role } },
+      });
+      if (error) { setError(error.message); return; }
+      if (data.session) {
+        await supabase.from("profiles").upsert(
+          { id: data.session.user.id, full_name: fullName, email, role },
+          { onConflict: "id" },
+        );
+        router.replace(isDriver ? "/(driver-onboard)/setup" : "/(tabs)");
+      } else {
+        setError("確認メールを送信しました。メールを確認してください。");
+      }
+    } catch (e: any) {
+      // ネットワーク到達不可（Supabase停止・オフライン等）でボタンが
+      // 押しっぱなしのまま固まるのを防ぐ
+      setError(
+        "サーバーに接続できませんでした。通信環境を確認してもう一度お試しください。",
       );
-      router.replace(isDriver ? "/(driver-onboard)/setup" : "/(tabs)");
-    } else {
-      setError("確認メールを送信しました。メールを確認してください。");
+      console.warn("signup failed", e);
+    } finally {
+      setLoading(false);
     }
   }
 

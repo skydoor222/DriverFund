@@ -70,16 +70,37 @@ function RootNavigator() {
   );
 }
 
+// Web（PC）で表示したときにスマホUIが画面いっぱいに引き伸ばされ、
+// 「アプリではなく手作りHP」に見えてしまうのを防ぐ。
+// 中央に端末幅のカラムを立て、外側は一段暗い背景で囲う。
+const APP_MAX_WIDTH = 480;
+
 export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === "web") {
-      document.body.style.backgroundColor = colors.bg;
-      document.documentElement.style.backgroundColor = colors.bg;
+      // カラムの外側（レターボックス部分）の色
+      document.body.style.backgroundColor = colors.bgGrouped;
+      document.documentElement.style.backgroundColor = colors.bgGrouped;
     }
   }, []);
 
+  const isWeb = Platform.OS === "web";
+
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
+    <GestureHandlerRootView
+      style={[
+        { flex: 1, backgroundColor: colors.bg },
+        isWeb && {
+          maxWidth: APP_MAX_WIDTH,
+          width: "100%",
+          marginHorizontal: "auto",
+          // 左右の境界を見せてカラムを「面」として認識させる
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderColor: colors.separator,
+        },
+      ]}
+    >
       <AuthProvider>
         <StatusBar style="dark" />
         <RootNavigator />

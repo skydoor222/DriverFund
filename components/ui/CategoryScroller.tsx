@@ -8,10 +8,12 @@ export interface CategoryItem {
   icon: keyof typeof Ionicons.glyphMap;
 }
 
+// 「SF」等の略称だけではカテゴリだと認識されないため、
+// チップには正式名称を出す（アイコン付きで視認性を上げる）
 export const RACING_CATEGORIES: CategoryItem[] = [
   { key: "all", label: "すべて", icon: "flame" },
-  { key: "sf", label: "SF", icon: "speedometer" },
-  { key: "f4", label: "F4", icon: "car-sport" },
+  { key: "sf", label: "スーパーフォーミュラ", icon: "speedometer" },
+  { key: "f4", label: "FIA-F4", icon: "car-sport" },
   { key: "kart", label: "カート", icon: "trophy" },
   { key: "other", label: "その他", icon: "ellipsis-horizontal" },
 ];
@@ -62,13 +64,21 @@ export function CategoryChips({
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipScroll}>
       {categories.map((c) => {
         const active = selected === c.key;
+        const tint = c.key === "all" ? colors.flame : categoryColor[c.key] ?? colors.labelSecondary;
         return (
           <Pressable
             key={c.key}
             onPress={() => onSelect?.(c.key)}
             style={[s.chip, active && s.chipActive]}
           >
-            <Text style={[s.chipTxt, active && s.chipTxtActive]}>{c.label}</Text>
+            <Ionicons
+              name={c.icon}
+              size={14}
+              color={active ? colors.white : tint}
+            />
+            <Text style={[s.chipTxt, active && s.chipTxtActive]} numberOfLines={1}>
+              {c.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -87,10 +97,12 @@ const s = StyleSheet.create({
 
   chipScroll: { paddingHorizontal: spacing.xl, gap: spacing.sm, paddingVertical: spacing.xs },
   chip: {
-    paddingHorizontal: spacing.lg, paddingVertical: 7, borderRadius: radius.pill,
-    backgroundColor: colors.bgGrouped,
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: spacing.lg, paddingVertical: 8, borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border,
   },
-  chipActive: { backgroundColor: colors.label },
-  chipTxt: { ...typography.footnote, fontWeight: "600", color: colors.labelSecondary },
+  chipActive: { backgroundColor: colors.label, borderColor: colors.label },
+  chipTxt: { ...typography.footnote, fontWeight: "700", color: colors.label },
   chipTxtActive: { color: colors.white },
 });

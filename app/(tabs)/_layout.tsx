@@ -18,7 +18,16 @@ export default function TabsLayout() {
           paddingBottom: Platform.OS === "web" ? 12 : 28,
           paddingTop: 8,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
+        // 「マイページ」など長めのラベルが省略されないよう、
+        // 文字詰めを解除し折り返しを禁止する
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: "700",
+          letterSpacing: 0,
+          width: "100%",
+          textAlign: "center",
+        },
+        tabBarItemStyle: { paddingHorizontal: 2 },
       }}
     >
       <Tabs.Screen name="index" options={{
@@ -46,7 +55,7 @@ export default function TabsLayout() {
         ),
       }} />
       <Tabs.Screen name="account" options={{
-        title: "マイ",
+        title: "マイページ",
         tabBarIcon: ({ color, focused }) => (
           <Ionicons name={focused ? "person" : "person-outline"} size={23} color={color} />
         ),

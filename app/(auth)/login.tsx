@@ -25,9 +25,17 @@ export default function LoginScreen() {
     }
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) setError(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setError(error.message);
+    } catch (e: any) {
+      setError(
+        "サーバーに接続できませんでした。通信環境を確認してもう一度お試しください。",
+      );
+      console.warn("login failed", e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleGoogle() {
