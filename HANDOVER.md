@@ -4,7 +4,7 @@
 > 全サービスを**熊田さん所有**に切り替え、以後はCodexを使って
 > 自分たちで修正できる状態にします。
 >
-> **修正のやり方は [AI_MANUAL.md](./AI_MANUAL.md) を見てください。**
+> **修正のやり方は [README_はじめに.md](./README_はじめに.md) を見てください。**
 
 ---
 
@@ -134,7 +134,8 @@ DriverFundは決済を扱うため、本格的な収益化時には
 
 | ファイル | 内容 |
 |---|---|
-|  **[AI_MANUAL.md](./AI_MANUAL.md)** | **Codexで修正する方法。まずこれを読む** |
+| **[README_はじめに.md](./README_はじめに.md)** | **まずこれ。Codexでの直し方（1枚）** |
+| [AI_MANUAL.md](./AI_MANUAL.md) | 詳細版。困ったときに参照 |
 | [CLAUDE.md](./CLAUDE.md) | AI向けの規約（人は読まなくてよい） |
 | [SETUP.md](./SETUP.md) | 開発環境の詳細セットアップ |
 | [REQUIREMENTS.md](./REQUIREMENTS.md) | 要件定義書 |
