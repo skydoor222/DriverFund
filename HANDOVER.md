@@ -1,7 +1,7 @@
 # DriverFund 引き継ぎ手順
 
 > **方針**: 前任者（戸田）は開発から離れます。
-> 全サービスを**熊田さん所有**に切り替え、以後はAIを使って
+> 全サービスを**熊田さん所有**に切り替え、以後はCodexを使って
 > 自分たちで修正できる状態にします。
 >
 > **修正のやり方は [AI_MANUAL.md](./AI_MANUAL.md) を見てください。**
@@ -86,7 +86,7 @@
 - [ ] 熊田さんが GitHub のリポジトリを開ける
 - [ ] 熊田さんが Supabase ダッシュボードを開ける
 - [ ] Stripe から戸田が削除されている
-- [ ] AI_MANUAL.md の手順でローカル起動できた
+- [ ] 熊田さんが Codex とリポジトリを連携できた
 
 ---
 
@@ -134,8 +134,8 @@ DriverFundは決済を扱うため、本格的な収益化時には
 
 | ファイル | 内容 |
 |---|---|
-| **[AI_MANUAL.md](./AI_MANUAL.md)** | **AIで修正する方法。まずこれを読む** |
-| [CLAUDE.md](./CLAUDE.md) | AIが自動で読む規約（人は読まなくてよい） |
+|  **[AI_MANUAL.md](./AI_MANUAL.md)** | **Codexで修正する方法。まずこれを読む** |
+| [CLAUDE.md](./CLAUDE.md) | AI向けの規約（人は読まなくてよい） |
 | [SETUP.md](./SETUP.md) | 開発環境の詳細セットアップ |
 | [REQUIREMENTS.md](./REQUIREMENTS.md) | 要件定義書 |
 | `supabase/migrations/` | DBスキーマ定義（番号順に適用） |
