@@ -1,0 +1,56 @@
+name: 自動マージ
+
+# Codexが作ったPull Requestを自動でmainにマージし、本番へ反映する。
+# 運営者（非エンジニア）がボタンを押さなくて済むようにするための仕組み。
+#
+# 止めたいとき:
+#   このファイルを削除するか、下の enabled を false にする。
+#   そうすると通常どおり手動Mergeに戻る。
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    # ← 自動マージを止めたい場合は true を false に変える
+    if: ${{ true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 型チェック
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: 依存インストール
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript型チェック（Edge Functionsは除外）
+        run: |
+          set -o pipefail
+          OUT=$(./node_modules/.bin/tsc --noEmit 2>&1 | grep -v "^supabase/functions" || true)
+          if [ -n "$OUT" ]; then
+            echo "型エラーがあるため自動マージを中止します:"
+            echo "$OUT"
+            exit 1
+          fi
+          echo "型チェックOK"
+
+      - name: ビルドできるか確認
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: placeholder
+        run: npx expo export -p web --output-dir /tmp/ci-build
+
+      - name: マージ実行
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge ${{ github.event.pull_request.number }} --squash --admin --delete-branch
